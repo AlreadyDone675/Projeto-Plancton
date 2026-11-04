@@ -1,0 +1,435 @@
+// Dados de referencia dos modelos e regioes baseados em data/models.json e data/predictions.csv
+
+export const MOCK_MODELS = [
+  {
+    id: 'model-a',
+    name: 'Modelo A',
+    description: 'Modelo de previsao desenvolvido pelo Grupo 1.',
+    groupName: 'Grupo 1',
+    algorithm: 'Linear Regression',
+    version: '1.0',
+    active: true,
+    createdAt: '2026-08-01T00:00:00Z'
+  },
+  {
+    id: 'model-b',
+    name: 'Modelo B',
+    description: 'Modelo de previsao desenvolvido pelo Grupo 2.',
+    groupName: 'Grupo 2',
+    algorithm: 'Random Forest',
+    version: '1.0',
+    active: true,
+    createdAt: '2026-08-01T00:00:00Z'
+  },
+  {
+    id: 'model-c',
+    name: 'Modelo C',
+    description: 'Modelo de previsao desenvolvido pelo Grupo 3.',
+    groupName: 'Grupo 3',
+    algorithm: 'Decision Tree',
+    version: '1.0',
+    active: true,
+    createdAt: '2026-08-01T00:00:00Z'
+  },
+  {
+    id: 'model-d',
+    name: 'Modelo D',
+    description: 'Modelo de previsao desenvolvido pelo Grupo 4.',
+    groupName: 'Grupo 4',
+    algorithm: 'Gradient Boosting',
+    version: '1.0',
+    active: true,
+    createdAt: '2026-08-01T00:00:00Z'
+  },
+  {
+    id: 'model-inactive',
+    name: 'Modelo Inativo',
+    description: 'Modelo desativado.',
+    groupName: 'Reservado',
+    algorithm: 'None',
+    version: '0.0',
+    active: false,
+    createdAt: '2026-08-01T00:00:00Z'
+  }
+];
+
+export const MOCK_PROBES = [
+  {
+    probeId: 900001,
+    atlasProbeId: 6410,
+    uf: 'SP',
+    city: 'Sao Paulo',
+    displayName: 'Sao Paulo, SP',
+    countryCode: 'BR',
+    asnV4: 28573,
+    asnV6: null,
+    latitude: -23.5505,
+    longitude: -46.6333,
+    baseRttMs: 14.2,
+    baseLossPct: 0.02,
+    jitterMs: 0.8
+  },
+  {
+    probeId: 900002,
+    atlasProbeId: 6602,
+    uf: 'RJ',
+    city: 'Rio de Janeiro',
+    displayName: 'Rio de Janeiro, RJ',
+    countryCode: 'BR',
+    asnV4: 7738,
+    asnV6: null,
+    latitude: -22.9068,
+    longitude: -43.1729,
+    baseRttMs: 64.5,
+    baseLossPct: 1.4,
+    jitterMs: 1.8
+  },
+  {
+    probeId: 900008,
+    atlasProbeId: 7019,
+    uf: 'PR',
+    city: 'Curitiba',
+    displayName: 'Curitiba, PR',
+    countryCode: 'BR',
+    asnV4: 28573,
+    asnV6: null,
+    latitude: -25.4284,
+    longitude: -49.2733,
+    baseRttMs: 158.1,
+    baseLossPct: 5.4,
+    jitterMs: 4.8
+  },
+  {
+    probeId: 900003,
+    atlasProbeId: 6891,
+    uf: 'MG',
+    city: 'Belo Horizonte',
+    displayName: 'Belo Horizonte, MG',
+    countryCode: 'BR',
+    asnV4: 16735,
+    asnV6: null,
+    latitude: -19.9167,
+    longitude: -43.9345,
+    baseRttMs: 21.4,
+    baseLossPct: 0.1,
+    jitterMs: 0.9
+  },
+  {
+    probeId: 900004,
+    atlasProbeId: 6790,
+    uf: 'DF',
+    city: 'Brasilia',
+    displayName: 'Brasilia, DF',
+    countryCode: 'BR',
+    asnV4: 28573,
+    asnV6: null,
+    latitude: -15.7975,
+    longitude: -47.8919,
+    baseRttMs: 28.0,
+    baseLossPct: 0.2,
+    jitterMs: 1.1
+  },
+  {
+    probeId: 900005,
+    atlasProbeId: 7307,
+    uf: 'BA',
+    city: 'Salvador',
+    displayName: 'Salvador, BA',
+    countryCode: 'BR',
+    asnV4: 18881,
+    asnV6: null,
+    latitude: -12.9714,
+    longitude: -38.5014,
+    baseRttMs: 72.0,
+    baseLossPct: 1.8,
+    jitterMs: 2.3
+  },
+  {
+    probeId: 900006,
+    atlasProbeId: 7508,
+    uf: 'PE',
+    city: 'Recife',
+    displayName: 'Recife, PE',
+    countryCode: 'BR',
+    asnV4: 18881,
+    asnV6: null,
+    latitude: -8.0476,
+    longitude: -34.877,
+    baseRttMs: 52.3,
+    baseLossPct: 0.6,
+    jitterMs: 1.5
+  },
+  {
+    probeId: 900007,
+    atlasProbeId: 7242,
+    uf: 'CE',
+    city: 'Fortaleza',
+    displayName: 'Fortaleza, CE',
+    countryCode: 'BR',
+    asnV4: 10429,
+    asnV6: null,
+    latitude: -3.7172,
+    longitude: -38.5434,
+    baseRttMs: 44.1,
+    baseLossPct: 0.4,
+    jitterMs: 1.2
+  },
+  {
+    probeId: 900009,
+    atlasProbeId: 6349,
+    uf: 'RS',
+    city: 'Porto Alegre',
+    displayName: 'Porto Alegre, RS',
+    countryCode: 'BR',
+    asnV4: 10429,
+    asnV6: null,
+    latitude: -30.0346,
+    longitude: -51.2177,
+    baseRttMs: 68.4,
+    baseLossPct: 1.5,
+    jitterMs: 2.1
+  },
+  {
+    probeId: 900010,
+    atlasProbeId: 7113,
+    uf: 'AM',
+    city: 'Manaus',
+    displayName: 'Manaus, AM',
+    countryCode: 'BR',
+    asnV4: 7738,
+    asnV6: null,
+    latitude: -3.119,
+    longitude: -60.0217,
+    baseRttMs: 164.0,
+    baseLossPct: 5.8,
+    jitterMs: 5.4
+  },
+  {
+    probeId: 6410,
+    atlasProbeId: 6410,
+    uf: 'SP',
+    city: 'Sao Paulo (Zona Sul)',
+    displayName: 'Sao Paulo (Zona Sul), SP',
+    countryCode: 'BR',
+    asnV4: 22548,
+    asnV6: 22548,
+    latitude: -23.6525,
+    longitude: -46.7325,
+    baseRttMs: 46.5,
+    baseLossPct: 0.0,
+    jitterMs: 0.8,
+    isRealAtlas: true
+  },
+  {
+    probeId: 6891,
+    atlasProbeId: 6891,
+    uf: 'MG',
+    city: 'Belo Horizonte (Pampulha)',
+    displayName: 'Belo Horizonte (Pampulha), MG',
+    countryCode: 'BR',
+    asnV4: 271354,
+    asnV6: null,
+    latitude: -19.8725,
+    longitude: -43.9585,
+    baseRttMs: 16.0,
+    baseLossPct: 0.0,
+    jitterMs: 0.6,
+    isRealAtlas: true
+  },
+  {
+    probeId: 6349,
+    atlasProbeId: 6349,
+    uf: 'RS',
+    city: 'Porto Alegre (Zona Leste)',
+    displayName: 'Porto Alegre (Zona Leste), RS',
+    countryCode: 'BR',
+    asnV4: 2716,
+    asnV6: 2716,
+    latitude: -30.0685,
+    longitude: -51.1205,
+    baseRttMs: 119.5,
+    baseLossPct: 0.0,
+    jitterMs: 1.5,
+    isRealAtlas: true
+  },
+  {
+    probeId: 7019,
+    atlasProbeId: 7019,
+    uf: 'PR',
+    city: 'Ponta Grossa',
+    displayName: 'Ponta Grossa, PR',
+    countryCode: 'BR',
+    asnV4: 53046,
+    asnV6: 53046,
+    latitude: -25.0885,
+    longitude: -50.1025,
+    baseRttMs: 12.5,
+    baseLossPct: 0.0,
+    jitterMs: 0.3,
+    isRealAtlas: true
+  },
+  {
+    probeId: 7242,
+    atlasProbeId: 7242,
+    uf: 'CE',
+    city: 'Fortaleza (Praia do Futuro)',
+    displayName: 'Fortaleza (Praia do Futuro), CE',
+    countryCode: 'BR',
+    asnV4: 37468,
+    asnV6: 37468,
+    latitude: -3.7415,
+    longitude: -38.4605,
+    baseRttMs: 66.5,
+    baseLossPct: 0.0,
+    jitterMs: 1.2,
+    isRealAtlas: true
+  },
+  {
+    probeId: 7307,
+    atlasProbeId: 7307,
+    uf: 'BA',
+    city: 'Feira de Santana',
+    displayName: 'Feira de Santana, BA',
+    countryCode: 'BR',
+    asnV4: 264479,
+    asnV6: null,
+    latitude: -12.2395,
+    longitude: -38.9725,
+    baseRttMs: 33.3,
+    baseLossPct: 0.0,
+    jitterMs: 0.9,
+    isRealAtlas: true
+  },
+  {
+    probeId: 6602,
+    atlasProbeId: 6602,
+    uf: 'SP',
+    city: 'Santana de Parnaiba',
+    displayName: 'Santana de Parnaiba, SP',
+    countryCode: 'BR',
+    asnV4: 36236,
+    asnV6: 36236,
+    latitude: -23.4715,
+    longitude: -46.8625,
+    baseRttMs: 32.8,
+    baseLossPct: 0.0,
+    jitterMs: 0.7,
+    isRealAtlas: true
+  },
+  {
+    probeId: 6790,
+    atlasProbeId: 6790,
+    uf: 'SP',
+    city: 'Sao Paulo (Centro)',
+    displayName: 'Sao Paulo (Centro), SP',
+    countryCode: 'BR',
+    asnV4: 57695,
+    asnV6: 57695,
+    latitude: -23.5825,
+    longitude: -46.6385,
+    baseRttMs: 34.5,
+    baseLossPct: 0.0,
+    jitterMs: 0.7,
+    isRealAtlas: true
+  },
+  {
+    probeId: 7113,
+    atlasProbeId: 7113,
+    uf: 'SP',
+    city: 'Campinas',
+    displayName: 'Campinas, SP',
+    countryCode: 'BR',
+    asnV4: 52863,
+    asnV6: 52863,
+    latitude: -23.5015,
+    longitude: -46.8325,
+    baseRttMs: 28.5,
+    baseLossPct: 0.0,
+    jitterMs: 1.2,
+    isRealAtlas: true
+  },
+  {
+    probeId: 7508,
+    atlasProbeId: 7508,
+    uf: 'SP',
+    city: 'Sao Paulo (Zona Oeste)',
+    displayName: 'Sao Paulo (Zona Oeste), SP',
+    countryCode: 'BR',
+    asnV4: 14907,
+    asnV6: null,
+    latitude: -23.4885,
+    longitude: -46.7825,
+    baseRttMs: 46.0,
+    baseLossPct: 0.0,
+    jitterMs: 0.8,
+    isRealAtlas: true
+  }
+];
+
+export const HOURLY_DELTAS = [
+  { hour: 0, rttFactor: 1.08, lossDelta: 0.1 },
+  { hour: 1, rttFactor: 1.02, lossDelta: 0.05 },
+  { hour: 2, rttFactor: 0.88, lossDelta: 0.0 },
+  { hour: 3, rttFactor: 0.85, lossDelta: 0.0 },
+  { hour: 4, rttFactor: 0.86, lossDelta: 0.0 },
+  { hour: 5, rttFactor: 0.90, lossDelta: 0.0 },
+  { hour: 6, rttFactor: 0.94, lossDelta: 0.0 },
+  { hour: 7, rttFactor: 0.96, lossDelta: 0.0 },
+  { hour: 8, rttFactor: 1.00, lossDelta: 0.0 },
+  { hour: 9, rttFactor: 1.00, lossDelta: 0.0 },
+  { hour: 10, rttFactor: 1.06, lossDelta: 0.1 },
+  { hour: 11, rttFactor: 1.12, lossDelta: 0.2 },
+  { hour: 12, rttFactor: 1.22, lossDelta: 0.4 },
+  { hour: 13, rttFactor: 1.25, lossDelta: 0.5 },
+  { hour: 14, rttFactor: 1.05, lossDelta: 0.05 },
+  { hour: 15, rttFactor: 1.02, lossDelta: 0.02 },
+  { hour: 16, rttFactor: 1.00, lossDelta: 0.0 },
+  { hour: 17, rttFactor: 1.00, lossDelta: 0.0 },
+  { hour: 18, rttFactor: 1.08, lossDelta: 0.1 },
+  { hour: 19, rttFactor: 1.12, lossDelta: 0.15 },
+  { hour: 20, rttFactor: 1.10, lossDelta: 0.1 },
+  { hour: 21, rttFactor: 1.06, lossDelta: 0.05 },
+  { hour: 22, rttFactor: 1.04, lossDelta: 0.0 },
+  { hour: 23, rttFactor: 1.02, lossDelta: 0.0 }
+];
+
+export const MODEL_OFFSETS = {
+  'model-a': { rttAdd: 0.0, lossAdd: 0.0 },
+  'model-b': { rttAdd: 8.5, lossAdd: 0.5 },
+  'model-c': { rttAdd: -4.2, lossAdd: -0.1 },
+  'model-d': { rttAdd: 14.0, lossAdd: 0.9 }
+};
+
+export function generatePredictionsForProbe(probeId, modelId = 'model-a') {
+  const probe = MOCK_PROBES.find((p) => p.probeId === Number(probeId)) || MOCK_PROBES[0];
+  const modelOffset = MODEL_OFFSETS[modelId] || MODEL_OFFSETS['model-a'];
+
+  return HOURLY_DELTAS.map((slot) => {
+    const hourStr = String(slot.hour).padStart(2, '0');
+    const rtt = Math.max(
+      1.0,
+      Number((probe.baseRttMs * slot.rttFactor + modelOffset.rttAdd).toFixed(1))
+    );
+    const loss = Math.max(
+      0.0,
+      Number((probe.baseLossPct + slot.lossDelta + modelOffset.lossAdd).toFixed(2))
+    );
+
+    return {
+      predictionId: `mock-${modelId}-${probe.probeId}-${hourStr}`,
+      modelId,
+      modelVersion: '1.0',
+      probeId: probe.probeId,
+      countryCode: probe.countryCode,
+      asnV4: probe.asnV4,
+      latitude: probe.latitude,
+      longitude: probe.longitude,
+      predictionGeneratedAt: '2026-08-18T12:00:00Z',
+      predictionFor: `2026-08-20T${hourStr}:00:00Z`,
+      hourLabel: `${hourStr}:00`,
+      predictedAvgRttMs: rtt,
+      predictedPacketLossPct: loss,
+      modelConfidence: 0.88
+    };
+  });
+}

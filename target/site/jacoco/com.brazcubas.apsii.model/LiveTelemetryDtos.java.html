@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="pt"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LiveTelemetryDtos.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Connectivity Forecast API</a> &gt; <a href="index.source.html" class="el_package">com.brazcubas.apsii.model</a> &gt; <span class="el_source">LiveTelemetryDtos.java</span></div><h1>LiveTelemetryDtos.java</h1><pre class="source lang-java linenums">package com.brazcubas.apsii.model;
+
+import com.brazcubas.apsii.config.ActivityRules;
+import com.brazcubas.apsii.config.QualityRules.Quality;
+
+import java.time.Instant;
+import java.util.List;
+
+/**
+ * DTOs para telemetria em tempo real coletada diretamente do RIPE Atlas.
+ */
+public final class LiveTelemetryDtos {
+    private LiveTelemetryDtos() {}
+
+<span class="fc" id="L15">    public record LiveTelemetryResponse(</span>
+            int probeId,
+            int measurementId,
+            String source,
+            double avgRttMs,
+            double minRttMs,
+            double maxRttMs,
+            double packetLossPct,
+            int sentPackets,
+            int receivedPackets,
+            Instant measuredAt,
+            Instant fetchedAt,
+            Quality quality,
+            int qualityScore,
+            ActivityRules.Recommendation recommendation,
+            String recommendationMessage,
+            String statusMessage) {}
+
+<span class="fc" id="L33">    public record LiveSyncStatusResponse(</span>
+            boolean liveSyncEnabled,
+            int defaultMeasurementId,
+            long syncRateMs,
+            Instant lastSyncAt,
+            int cachedProbesCount,
+            List&lt;Integer&gt; monitoredProbes) {}
+
+<span class="fc" id="L41">    public record RefreshResponse(</span>
+            int refreshedCount,
+            Instant refreshedAt,
+            String message) {}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

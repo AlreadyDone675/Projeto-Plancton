@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="pt"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ModelService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Connectivity Forecast API</a> &gt; <a href="index.source.html" class="el_package">com.brazcubas.apsii.service</a> &gt; <span class="el_source">ModelService.java</span></div><h1>ModelService.java</h1><pre class="source lang-java linenums">package com.brazcubas.apsii.service;
+
+import com.brazcubas.apsii.config.ApiException;
+import com.brazcubas.apsii.model.ApiDtos;
+import com.brazcubas.apsii.model.PredictionModel;
+import com.brazcubas.apsii.repository.ModelRepository;
+import org.springframework.stereotype.Service;
+
+import java.util.Comparator;
+import java.util.List;
+
+@Service
+public class ModelService {
+    private final ModelRepository repository;
+
+<span class="fc" id="L16">    public ModelService(ModelRepository repository) {</span>
+<span class="fc" id="L17">        this.repository = repository;</span>
+<span class="fc" id="L18">    }</span>
+
+    public ApiDtos.ModelsResponse listActive() {
+<span class="fc" id="L21">        List&lt;ApiDtos.ModelListItem&gt; items = listActiveModels().stream()</span>
+<span class="fc" id="L22">                .map(ModelService::toListItem)</span>
+<span class="fc" id="L23">                .toList();</span>
+<span class="fc" id="L24">        return new ApiDtos.ModelsResponse(items, items.size());</span>
+    }
+
+    public ApiDtos.ModelDetail get(String modelId) {
+<span class="nc" id="L28">        PredictionModel model = repository.findById(modelId)</span>
+<span class="nc" id="L29">                .orElseThrow(() -&gt; new ApiException(404, &quot;MODEL_NOT_FOUND&quot;, &quot;The requested prediction model was not found.&quot;));</span>
+<span class="nc" id="L30">        return new ApiDtos.ModelDetail(</span>
+<span class="nc" id="L31">                model.id(), model.name(), model.description(), model.groupName(),</span>
+<span class="nc" id="L32">                model.algorithm(), model.version(), model.active());</span>
+    }
+
+    public PredictionModel requireActive(String modelId) {
+<span class="fc" id="L36">        PredictionModel model = repository.findById(modelId)</span>
+<span class="pc" id="L37">                .orElseThrow(() -&gt; new ApiException(404, &quot;MODEL_NOT_FOUND&quot;, &quot;The requested prediction model was not found.&quot;));</span>
+<span class="pc bpc" id="L38" title="1 of 2 branches missed.">        if (!model.active()) {</span>
+<span class="nc" id="L39">            throw new ApiException(404, &quot;MODEL_INACTIVE&quot;, &quot;The requested prediction model is not active.&quot;);</span>
+        }
+<span class="fc" id="L41">        return model;</span>
+    }
+
+    public List&lt;PredictionModel&gt; listActiveModels() {
+<span class="fc" id="L45">        return repository.findAll().stream()</span>
+<span class="fc" id="L46">                .filter(PredictionModel::active)</span>
+<span class="fc" id="L47">                .sorted(Comparator.comparing(PredictionModel::name, String.CASE_INSENSITIVE_ORDER))</span>
+<span class="fc" id="L48">                .toList();</span>
+    }
+
+    public static ApiDtos.ModelListItem toListItem(PredictionModel model) {
+<span class="fc" id="L52">        return new ApiDtos.ModelListItem(</span>
+<span class="fc" id="L53">                model.id(), model.name(), model.description(), model.groupName(), model.algorithm(), model.version());</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

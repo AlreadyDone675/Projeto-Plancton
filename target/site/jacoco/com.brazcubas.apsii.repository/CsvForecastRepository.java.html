@@ -1,0 +1,251 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="pt"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CsvForecastRepository.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Connectivity Forecast API</a> &gt; <a href="index.source.html" class="el_package">com.brazcubas.apsii.repository</a> &gt; <span class="el_source">CsvForecastRepository.java</span></div><h1>CsvForecastRepository.java</h1><pre class="source lang-java linenums">package com.brazcubas.apsii.repository;
+
+import com.brazcubas.apsii.config.DateTimeUtils;
+import com.brazcubas.apsii.model.Forecast;
+import com.brazcubas.apsii.model.Probe;
+import jakarta.annotation.PostConstruct;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.ResourceLoader;
+import org.springframework.stereotype.Repository;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+
+@Repository
+public class CsvForecastRepository implements ForecastRepository {
+<span class="fc" id="L30">    private static final Logger logger = LoggerFactory.getLogger(CsvForecastRepository.class);</span>
+<span class="fc" id="L31">    private static final List&lt;String&gt; REQUIRED_COLUMNS = List.of(</span>
+            &quot;prediction_id&quot;, &quot;model_id&quot;, &quot;model_version&quot;, &quot;probe_id&quot;, &quot;measurement_id&quot;,
+            &quot;country_code&quot;, &quot;asn_v4&quot;, &quot;asn_v6&quot;, &quot;latitude&quot;, &quot;longitude&quot;,
+            &quot;prediction_generated_at&quot;, &quot;prediction_for&quot;, &quot;predicted_avg_rtt_ms&quot;,
+            &quot;predicted_packet_loss_pct&quot;, &quot;model_confidence&quot;);
+<span class="fc" id="L36">    private static final Set&lt;String&gt; FORBIDDEN_COLUMNS = Set.of(</span>
+            &quot;src_addr&quot;, &quot;from&quot;, &quot;address_v4&quot;, &quot;address_v6&quot;, &quot;prefix_v4&quot;, &quot;prefix_v6&quot;);
+
+    private final Resource resource;
+    private final ModelRepository modelRepository;
+<span class="fc" id="L41">    private List&lt;Forecast&gt; forecasts = List.of();</span>
+<span class="fc" id="L42">    private Map&lt;ProbeKey, List&lt;Forecast&gt;&gt; byModelAndProbe = Map.of();</span>
+<span class="fc" id="L43">    private List&lt;Probe&gt; probes = List.of();</span>
+<span class="fc" id="L44">    private Map&lt;String, List&lt;Probe&gt;&gt; probesByModel = Map.of();</span>
+
+    public CsvForecastRepository(
+            ResourceLoader resourceLoader,
+            ModelRepository modelRepository,
+<span class="fc" id="L49">            @Value(&quot;${api.predictions-file:classpath:data/predictions.csv}&quot;) String predictionsFile) {</span>
+<span class="fc" id="L50">        this.resource = resourceLoader.getResource(predictionsFile);</span>
+<span class="fc" id="L51">        this.modelRepository = modelRepository;</span>
+<span class="fc" id="L52">    }</span>
+
+    @PostConstruct
+    public void load() {
+<span class="pc bpc" id="L56" title="1 of 2 branches missed.">        if (!resource.exists()) {</span>
+<span class="nc" id="L57">            throw new IllegalStateException(&quot;The prediction dataset file was not found.&quot;);</span>
+        }
+<span class="fc" id="L59">        Set&lt;String&gt; knownModels = new HashSet&lt;&gt;();</span>
+<span class="fc" id="L60">        modelRepository.findAll().forEach(model -&gt; knownModels.add(model.id()));</span>
+<span class="fc" id="L61">        List&lt;Forecast&gt; loaded = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L62">        try (BufferedReader reader = new BufferedReader(</span>
+<span class="fc" id="L63">                new InputStreamReader(resource.getInputStream(), StandardCharsets.UTF_8))) {</span>
+<span class="fc" id="L64">            String headerLine = reader.readLine();</span>
+<span class="pc bpc" id="L65" title="1 of 2 branches missed.">            if (headerLine == null) {</span>
+<span class="nc" id="L66">                throw new IllegalStateException(&quot;The prediction dataset has no header row.&quot;);</span>
+            }
+<span class="fc" id="L68">            List&lt;String&gt; headers = parseCsvLine(headerLine.replace(&quot;\uFEFF&quot;, &quot;&quot;))</span>
+<span class="fc" id="L69">                    .stream().map(String::trim).toList();</span>
+<span class="fc" id="L70">            validateHeader(headers);</span>
+            String line;
+<span class="fc" id="L72">            int rowNumber = 1;</span>
+<span class="fc" id="L73">            int skippedUnknownModels = 0;</span>
+<span class="fc bfc" id="L74" title="All 2 branches covered.">            while ((line = reader.readLine()) != null) {</span>
+<span class="fc" id="L75">                rowNumber++;</span>
+<span class="pc bpc" id="L76" title="1 of 2 branches missed.">                if (line.isBlank()) {</span>
+<span class="nc" id="L77">                    continue;</span>
+                }
+                try {
+<span class="fc" id="L80">                    Forecast forecast = parseRow(headers, parseCsvLine(line));</span>
+<span class="fc bfc" id="L81" title="All 2 branches covered.">                    if (!knownModels.contains(forecast.modelId())) {</span>
+<span class="fc" id="L82">                        skippedUnknownModels++;</span>
+<span class="fc" id="L83">                        logger.warn(&quot;Skipping prediction {} with unregistered model_id {}&quot;,</span>
+<span class="fc" id="L84">                                forecast.predictionId(), forecast.modelId());</span>
+<span class="fc" id="L85">                        continue;</span>
+                    }
+<span class="fc" id="L87">                    loaded.add(forecast);</span>
+<span class="fc" id="L88">                } catch (RuntimeException exception) {</span>
+<span class="fc" id="L89">                    logger.warn(&quot;Skipping invalid prediction row {}: {}&quot;, rowNumber, exception.getMessage());</span>
+<span class="fc" id="L90">                }</span>
+            }
+<span class="fc bfc" id="L92" title="All 2 branches covered.">            if (skippedUnknownModels &gt; 0) {</span>
+<span class="fc" id="L93">                logger.warn(&quot;Ignored {} prediction rows with unregistered model_id values&quot;, skippedUnknownModels);</span>
+            }
+<span class="nc" id="L95">        } catch (IOException exception) {</span>
+<span class="nc" id="L96">            throw new IllegalStateException(&quot;The prediction dataset could not be read.&quot;, exception);</span>
+<span class="fc" id="L97">        }</span>
+<span class="pc bpc" id="L98" title="1 of 2 branches missed.">        if (loaded.isEmpty()) {</span>
+<span class="nc" id="L99">            throw new IllegalStateException(&quot;The prediction dataset is empty.&quot;);</span>
+        }
+<span class="fc" id="L101">        Map&lt;ProbeKey, List&lt;Forecast&gt;&gt; timelines = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L102">        Map&lt;Integer, Probe&gt; allProbes = new LinkedHashMap&lt;&gt;();</span>
+<span class="fc" id="L103">        Map&lt;String, Map&lt;Integer, Probe&gt;&gt; modelProbes = new HashMap&lt;&gt;();</span>
+<span class="fc bfc" id="L104" title="All 2 branches covered.">        for (Forecast forecast : loaded) {</span>
+<span class="fc" id="L105">            ProbeKey key = new ProbeKey(forecast.modelId(), forecast.probeId());</span>
+<span class="fc" id="L106">            timelines.computeIfAbsent(key, ignored -&gt; new ArrayList&lt;&gt;()).add(forecast);</span>
+<span class="fc" id="L107">            Probe probe = new Probe(forecast.probeId(), forecast.countryCode(), forecast.asnV4(), forecast.asnV6(),</span>
+<span class="fc" id="L108">                    forecast.latitude(), forecast.longitude());</span>
+<span class="fc" id="L109">            allProbes.put(probe.probeId(), probe);</span>
+<span class="fc" id="L110">            modelProbes.computeIfAbsent(forecast.modelId(), ignored -&gt; new LinkedHashMap&lt;&gt;())</span>
+<span class="fc" id="L111">                    .put(probe.probeId(), probe);</span>
+<span class="fc" id="L112">        }</span>
+<span class="fc" id="L113">        Map&lt;ProbeKey, List&lt;Forecast&gt;&gt; immutableTimelines = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L114">        timelines.forEach((key, value) -&gt; {</span>
+<span class="fc" id="L115">            value.sort(Comparator.comparing(Forecast::predictionFor));</span>
+<span class="fc" id="L116">            immutableTimelines.put(key, List.copyOf(value));</span>
+<span class="fc" id="L117">        });</span>
+<span class="fc" id="L118">        Map&lt;String, List&lt;Probe&gt;&gt; immutableModelProbes = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L119">        modelProbes.forEach((modelId, values) -&gt; immutableModelProbes.put(modelId, List.copyOf(values.values())));</span>
+<span class="fc" id="L120">        forecasts = List.copyOf(loaded);</span>
+<span class="fc" id="L121">        byModelAndProbe = Map.copyOf(immutableTimelines);</span>
+<span class="fc" id="L122">        probes = List.copyOf(allProbes.values());</span>
+<span class="fc" id="L123">        probesByModel = Map.copyOf(immutableModelProbes);</span>
+<span class="fc" id="L124">        logger.info(&quot;Loaded {} predictions for {} probes&quot;, forecasts.size(), probes.size());</span>
+<span class="fc" id="L125">    }</span>
+
+    @Override
+    public List&lt;Forecast&gt; findAll() {
+<span class="fc" id="L129">        return forecasts;</span>
+    }
+
+    @Override
+    public List&lt;Forecast&gt; findByModelAndProbe(String modelId, int probeId) {
+<span class="fc" id="L134">        return byModelAndProbe.getOrDefault(new ProbeKey(modelId, probeId), List.of());</span>
+    }
+
+    @Override
+    public List&lt;Probe&gt; listProbeLocations() {
+<span class="nc" id="L139">        return probes;</span>
+    }
+
+    @Override
+    public List&lt;Probe&gt; listProbeLocations(String modelId) {
+<span class="nc" id="L144">        return probesByModel.getOrDefault(modelId, List.of());</span>
+    }
+
+    private static void validateHeader(List&lt;String&gt; headers) {
+<span class="pc bpc" id="L148" title="1 of 2 branches missed.">        List&lt;String&gt; missing = REQUIRED_COLUMNS.stream().filter(column -&gt; !headers.contains(column)).toList();</span>
+<span class="pc bpc" id="L149" title="1 of 2 branches missed.">        if (!missing.isEmpty()) {</span>
+<span class="nc" id="L150">            throw new IllegalStateException(&quot;The prediction dataset is missing required columns: &quot;</span>
+<span class="nc" id="L151">                    + String.join(&quot;, &quot;, missing) + &quot;.&quot;);</span>
+        }
+<span class="fc" id="L153">        List&lt;String&gt; forbidden = headers.stream().filter(FORBIDDEN_COLUMNS::contains).toList();</span>
+<span class="pc bpc" id="L154" title="1 of 2 branches missed.">        if (!forbidden.isEmpty()) {</span>
+<span class="nc" id="L155">            throw new IllegalStateException(&quot;The prediction dataset contains probe address fields that must not be exposed.&quot;);</span>
+        }
+<span class="fc" id="L157">    }</span>
+
+    private static Forecast parseRow(List&lt;String&gt; headers, List&lt;String&gt; values) {
+<span class="pc bpc" id="L160" title="1 of 2 branches missed.">        if (headers.size() != values.size()) {</span>
+<span class="nc" id="L161">            throw new IllegalArgumentException(&quot;column count does not match header&quot;);</span>
+        }
+<span class="fc" id="L163">        Map&lt;String, String&gt; row = new HashMap&lt;&gt;();</span>
+<span class="fc bfc" id="L164" title="All 2 branches covered.">        for (int index = 0; index &lt; headers.size(); index++) {</span>
+<span class="fc" id="L165">            row.put(headers.get(index), values.get(index).trim());</span>
+        }
+<span class="fc" id="L167">        double latitude = parseDouble(row, &quot;latitude&quot;);</span>
+<span class="fc" id="L168">        double longitude = parseDouble(row, &quot;longitude&quot;);</span>
+<span class="fc" id="L169">        double rtt = parseDouble(row, &quot;predicted_avg_rtt_ms&quot;);</span>
+<span class="fc" id="L170">        double loss = parseDouble(row, &quot;predicted_packet_loss_pct&quot;);</span>
+<span class="pc bpc" id="L171" title="4 of 8 branches missed.">        if (latitude &lt; -90 || latitude &gt; 90 || longitude &lt; -180 || longitude &gt; 180) {</span>
+<span class="nc" id="L172">            throw new IllegalArgumentException(&quot;coordinates are out of range&quot;);</span>
+        }
+<span class="pc bpc" id="L174" title="2 of 4 branches missed.">        if (rtt &lt; 0 || loss &lt; 0) {</span>
+<span class="nc" id="L175">            throw new IllegalArgumentException(&quot;predicted metrics must be non-negative&quot;);</span>
+        }
+<span class="fc" id="L177">        String confidenceValue = row.get(&quot;model_confidence&quot;);</span>
+<span class="pc bpc" id="L178" title="1 of 4 branches missed.">        Double confidence = confidenceValue == null || confidenceValue.isBlank()</span>
+<span class="fc" id="L179">                ? null</span>
+<span class="fc" id="L180">                : Double.valueOf(confidenceValue);</span>
+<span class="pc bpc" id="L181" title="1 of 8 branches missed.">        if (confidence != null &amp;&amp; (!Double.isFinite(confidence) || confidence &lt; 0 || confidence &gt; 1)) {</span>
+<span class="fc" id="L182">            throw new IllegalArgumentException(&quot;model_confidence must be between 0 and 1&quot;);</span>
+        }
+<span class="fc" id="L184">        return new Forecast(</span>
+<span class="fc" id="L185">                required(row, &quot;prediction_id&quot;),</span>
+<span class="fc" id="L186">                required(row, &quot;model_id&quot;),</span>
+<span class="fc" id="L187">                required(row, &quot;model_version&quot;),</span>
+<span class="fc" id="L188">                Integer.parseInt(required(row, &quot;probe_id&quot;)),</span>
+<span class="fc" id="L189">                Long.parseLong(required(row, &quot;measurement_id&quot;)),</span>
+<span class="fc" id="L190">                required(row, &quot;country_code&quot;).toUpperCase(Locale.ROOT),</span>
+<span class="fc" id="L191">                optionalInteger(row.get(&quot;asn_v4&quot;)),</span>
+<span class="fc" id="L192">                optionalInteger(row.get(&quot;asn_v6&quot;)),</span>
+                latitude,
+                longitude,
+<span class="fc" id="L195">                DateTimeUtils.parseUtc(required(row, &quot;prediction_generated_at&quot;)),</span>
+<span class="fc" id="L196">                DateTimeUtils.parseUtc(required(row, &quot;prediction_for&quot;)),</span>
+                rtt,
+                loss,
+                confidence);
+    }
+
+    private static double parseDouble(Map&lt;String, String&gt; row, String field) {
+<span class="fc" id="L203">        double value = Double.parseDouble(required(row, field));</span>
+<span class="pc bpc" id="L204" title="1 of 2 branches missed.">        if (!Double.isFinite(value)) {</span>
+<span class="nc" id="L205">            throw new IllegalArgumentException(field + &quot; must be finite&quot;);</span>
+        }
+<span class="fc" id="L207">        return value;</span>
+    }
+
+    private static String required(Map&lt;String, String&gt; row, String field) {
+<span class="fc" id="L211">        String value = row.get(field);</span>
+<span class="pc bpc" id="L212" title="2 of 4 branches missed.">        if (value == null || value.isBlank()) {</span>
+<span class="nc" id="L213">            throw new IllegalArgumentException(&quot;missing &quot; + field);</span>
+        }
+<span class="fc" id="L215">        return value.trim();</span>
+    }
+
+    private static Integer optionalInteger(String value) {
+<span class="pc bpc" id="L219" title="1 of 4 branches missed.">        return value == null || value.isBlank() ? null : Integer.valueOf(value);</span>
+    }
+
+    private static List&lt;String&gt; parseCsvLine(String line) {
+<span class="fc" id="L223">        List&lt;String&gt; fields = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L224">        StringBuilder value = new StringBuilder();</span>
+<span class="fc" id="L225">        boolean quoted = false;</span>
+<span class="fc bfc" id="L226" title="All 2 branches covered.">        for (int index = 0; index &lt; line.length(); index++) {</span>
+<span class="fc" id="L227">            char character = line.charAt(index);</span>
+<span class="pc bpc" id="L228" title="1 of 2 branches missed.">            if (character == '&quot;') {</span>
+<span class="nc bnc" id="L229" title="All 6 branches missed.">                if (quoted &amp;&amp; index + 1 &lt; line.length() &amp;&amp; line.charAt(index + 1) == '&quot;') {</span>
+<span class="nc" id="L230">                    value.append('&quot;');</span>
+<span class="nc" id="L231">                    index++;</span>
+                } else {
+<span class="nc bnc" id="L233" title="All 2 branches missed.">                    quoted = !quoted;</span>
+                }
+<span class="pc bpc" id="L235" title="1 of 4 branches missed.">            } else if (character == ',' &amp;&amp; !quoted) {</span>
+<span class="fc" id="L236">                fields.add(value.toString());</span>
+<span class="fc" id="L237">                value.setLength(0);</span>
+            } else {
+<span class="fc" id="L239">                value.append(character);</span>
+            }
+        }
+<span class="pc bpc" id="L242" title="1 of 2 branches missed.">        if (quoted) {</span>
+<span class="nc" id="L243">            throw new IllegalArgumentException(&quot;unterminated quoted CSV field&quot;);</span>
+        }
+<span class="fc" id="L245">        fields.add(value.toString());</span>
+<span class="fc" id="L246">        return fields;</span>
+    }
+
+<span class="fc" id="L249">    private record ProbeKey(String modelId, int probeId) {}</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

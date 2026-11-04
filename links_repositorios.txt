@@ -1,0 +1,9 @@
+Projeto: ConnectTech — Squad Plancton
+Disciplina: Análise e Projeto de Sistemas II (APS II — 2026/2)
+Professor: Prof. Davi de Oliveira Cruz
+
+Repositório do Projeto / API (Squad Plancton):
+https://github.com/AlreadyDone675/Projeto-Plancton
+
+Repositório de Referência da Connectivity Forecast API:
+https://github.com/LiniiS/connectivity-forecast-api

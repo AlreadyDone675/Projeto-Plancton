@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="pt"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ApiConfiguration.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Connectivity Forecast API</a> &gt; <a href="index.source.html" class="el_package">com.brazcubas.apsii.config</a> &gt; <span class="el_source">ApiConfiguration.java</span></div><h1>ApiConfiguration.java</h1><pre class="source lang-java linenums">package com.brazcubas.apsii.config;
+
+import io.swagger.v3.oas.models.OpenAPI;
+import io.swagger.v3.oas.models.info.Info;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.config.annotation.CorsRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
+import java.util.Arrays;
+import java.util.List;
+
+@Configuration
+public class ApiConfiguration implements WebMvcConfigurer {
+    private final List&lt;String&gt; allowedOrigins;
+
+<span class="fc" id="L18">    public ApiConfiguration(@Value(&quot;${api.allowed-origins:*}&quot;) String origins) {</span>
+<span class="fc" id="L19">        List&lt;String&gt; configuredOrigins = Arrays.stream(origins.split(&quot;,&quot;))</span>
+<span class="fc" id="L20">                .map(String::trim)</span>
+<span class="pc bpc" id="L21" title="1 of 2 branches missed.">                .filter(origin -&gt; !origin.isEmpty())</span>
+<span class="fc" id="L22">                .toList();</span>
+<span class="pc bpc" id="L23" title="1 of 2 branches missed.">        this.allowedOrigins = configuredOrigins.isEmpty() ? List.of(&quot;*&quot;) : configuredOrigins;</span>
+<span class="fc" id="L24">    }</span>
+
+    @Bean
+    public OpenAPI openApi() {
+<span class="fc" id="L28">        return new OpenAPI().info(new Info()</span>
+<span class="fc" id="L29">                .title(&quot;Internet Quality API&quot;)</span>
+<span class="fc" id="L30">                .version(&quot;0.2.0&quot;)</span>
+<span class="fc" id="L31">                .description(&quot;Educational API starter. Complete this OpenAPI documentation as part of the course work.&quot;));</span>
+    }
+
+    @Override
+    public void addCorsMappings(CorsRegistry registry) {
+<span class="fc" id="L36">        var mapping = registry.addMapping(&quot;/api/v1/**&quot;)</span>
+<span class="fc" id="L37">                .allowedMethods(&quot;*&quot;)</span>
+<span class="fc" id="L38">                .allowedHeaders(&quot;*&quot;);</span>
+<span class="pc bpc" id="L39" title="2 of 4 branches missed.">        if (allowedOrigins.size() == 1 &amp;&amp; allowedOrigins.get(0).equals(&quot;*&quot;)) {</span>
+<span class="fc" id="L40">            mapping.allowedOriginPatterns(&quot;*&quot;).allowCredentials(false);</span>
+        } else {
+<span class="nc" id="L42">            mapping.allowedOrigins(allowedOrigins.toArray(String[]::new)).allowCredentials(true);</span>
+        }
+<span class="fc" id="L44">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

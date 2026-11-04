@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="pt"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ApiExceptionHandler.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Connectivity Forecast API</a> &gt; <a href="index.source.html" class="el_package">com.brazcubas.apsii.controller</a> &gt; <span class="el_source">ApiExceptionHandler.java</span></div><h1>ApiExceptionHandler.java</h1><pre class="source lang-java linenums">package com.brazcubas.apsii.controller;
+
+import com.brazcubas.apsii.config.ApiException;
+import com.brazcubas.apsii.model.ApiDtos;
+import jakarta.validation.ConstraintViolationException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatusCode;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
+
+import java.util.List;
+
+@RestControllerAdvice
+<span class="fc" id="L22">public class ApiExceptionHandler {</span>
+<span class="fc" id="L23">    private static final Logger logger = LoggerFactory.getLogger(ApiExceptionHandler.class);</span>
+
+    @ExceptionHandler(ApiException.class)
+    public ResponseEntity&lt;ApiDtos.ErrorResponse&gt; handleApiException(ApiException exception) {
+<span class="nc" id="L27">        List&lt;ApiDtos.ErrorDetail&gt; details = exception.details().entrySet().stream()</span>
+<span class="nc" id="L28">                .map(entry -&gt; new ApiDtos.ErrorDetail(entry.getKey(), entry.getValue()))</span>
+<span class="nc" id="L29">                .toList();</span>
+<span class="nc" id="L30">        return response(exception.statusCode(), exception.code(), exception.getMessage(), details);</span>
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity&lt;ApiDtos.ErrorResponse&gt; handleInvalidBody(MethodArgumentNotValidException exception) {
+<span class="nc" id="L35">        List&lt;ApiDtos.ErrorDetail&gt; details = exception.getBindingResult().getFieldErrors().stream()</span>
+<span class="nc" id="L36">                .map(error -&gt; new ApiDtos.ErrorDetail(error.getField(), error.getDefaultMessage()))</span>
+<span class="nc" id="L37">                .toList();</span>
+<span class="nc" id="L38">        return response(422, &quot;VALIDATION_ERROR&quot;, &quot;Invalid request parameters.&quot;, details);</span>
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity&lt;ApiDtos.ErrorResponse&gt; handleConstraintViolation(ConstraintViolationException exception) {
+<span class="nc" id="L43">        List&lt;ApiDtos.ErrorDetail&gt; details = exception.getConstraintViolations().stream()</span>
+<span class="nc" id="L44">                .map(violation -&gt; new ApiDtos.ErrorDetail(</span>
+<span class="nc" id="L45">                        violation.getPropertyPath().toString().replaceAll(&quot;^.*\\.&quot;, &quot;&quot;),</span>
+<span class="nc" id="L46">                        violation.getMessage()))</span>
+<span class="nc" id="L47">                .toList();</span>
+<span class="nc" id="L48">        return response(422, &quot;VALIDATION_ERROR&quot;, &quot;Invalid request parameters.&quot;, details);</span>
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity&lt;ApiDtos.ErrorResponse&gt; handleMissingParameter(MissingServletRequestParameterException exception) {
+<span class="nc" id="L53">        return response(422, &quot;VALIDATION_ERROR&quot;, &quot;Invalid request parameters.&quot;,</span>
+<span class="nc" id="L54">                List.of(new ApiDtos.ErrorDetail(exception.getParameterName(), &quot;Field required&quot;)));</span>
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity&lt;ApiDtos.ErrorResponse&gt; handleTypeMismatch(MethodArgumentTypeMismatchException exception) {
+<span class="nc" id="L59">        return response(422, &quot;VALIDATION_ERROR&quot;, &quot;Invalid request parameters.&quot;,</span>
+<span class="nc" id="L60">                List.of(new ApiDtos.ErrorDetail(exception.getName(), &quot;Input should be a valid value&quot;)));</span>
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity&lt;ApiDtos.ErrorResponse&gt; handleUnreadableBody(HttpMessageNotReadableException exception) {
+<span class="nc" id="L65">        return response(422, &quot;VALIDATION_ERROR&quot;, &quot;Invalid request parameters.&quot;,</span>
+<span class="nc" id="L66">                List.of(new ApiDtos.ErrorDetail(&quot;body&quot;, &quot;Malformed or invalid request body&quot;)));</span>
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity&lt;ApiDtos.ErrorResponse&gt; handleNotFound(NoResourceFoundException exception) {
+<span class="nc" id="L71">        return response(404, &quot;HTTP_ERROR&quot;, &quot;Not found.&quot;, List.of());</span>
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity&lt;ApiDtos.ErrorResponse&gt; handleMethodNotAllowed(HttpRequestMethodNotSupportedException exception) {
+<span class="nc" id="L76">        return response(405, &quot;HTTP_ERROR&quot;, &quot;Method not allowed.&quot;, List.of());</span>
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity&lt;ApiDtos.ErrorResponse&gt; handleUnexpected(Exception exception) {
+<span class="nc" id="L81">        logger.error(&quot;Unhandled server error&quot;, exception);</span>
+<span class="nc" id="L82">        return response(500, &quot;INTERNAL_ERROR&quot;, &quot;An unexpected error occurred.&quot;, List.of());</span>
+    }
+
+    private static ResponseEntity&lt;ApiDtos.ErrorResponse&gt; response(
+            int status, String code, String message, List&lt;ApiDtos.ErrorDetail&gt; details) {
+<span class="nc bnc" id="L87" title="All 2 branches missed.">        ApiDtos.ErrorBody error = new ApiDtos.ErrorBody(code, message, details.isEmpty() ? null : details);</span>
+<span class="nc" id="L88">        return ResponseEntity.status(HttpStatusCode.valueOf(status)).body(new ApiDtos.ErrorResponse(error));</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

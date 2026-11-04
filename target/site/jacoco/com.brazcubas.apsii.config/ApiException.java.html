@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="pt"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ApiException.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Connectivity Forecast API</a> &gt; <a href="index.source.html" class="el_package">com.brazcubas.apsii.config</a> &gt; <span class="el_source">ApiException.java</span></div><h1>ApiException.java</h1><pre class="source lang-java linenums">package com.brazcubas.apsii.config;
+
+import java.util.Map;
+
+public class ApiException extends RuntimeException {
+    private final int statusCode;
+    private final String code;
+    private final Map&lt;String, String&gt; details;
+
+    public ApiException(int statusCode, String code, String message) {
+<span class="nc" id="L11">        this(statusCode, code, message, Map.of());</span>
+<span class="nc" id="L12">    }</span>
+
+    public ApiException(int statusCode, String code, String message, Map&lt;String, String&gt; details) {
+<span class="nc" id="L15">        super(message);</span>
+<span class="nc" id="L16">        this.statusCode = statusCode;</span>
+<span class="nc" id="L17">        this.code = code;</span>
+<span class="nc" id="L18">        this.details = Map.copyOf(details);</span>
+<span class="nc" id="L19">    }</span>
+
+    public int statusCode() {
+<span class="nc" id="L22">        return statusCode;</span>
+    }
+
+    public String code() {
+<span class="nc" id="L26">        return code;</span>
+    }
+
+    public Map&lt;String, String&gt; details() {
+<span class="nc" id="L30">        return details;</span>
+    }
+
+    public static ApiException validation(String field, String message) {
+<span class="nc" id="L34">        return new ApiException(422, &quot;VALIDATION_ERROR&quot;, &quot;Invalid request parameters.&quot;, Map.of(field, message));</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

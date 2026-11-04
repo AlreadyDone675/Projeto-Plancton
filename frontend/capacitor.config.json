@@ -1,0 +1,9 @@
+{
+  "appId": "com.brazcubas.connecttech",
+  "appName": "ConnectTech",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "http",
+    "cleartext": true
+  }
+}

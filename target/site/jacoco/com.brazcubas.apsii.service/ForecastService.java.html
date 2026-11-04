@@ -1,0 +1,230 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="pt"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ForecastService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Connectivity Forecast API</a> &gt; <a href="index.source.html" class="el_package">com.brazcubas.apsii.service</a> &gt; <span class="el_source">ForecastService.java</span></div><h1>ForecastService.java</h1><pre class="source lang-java linenums">package com.brazcubas.apsii.service;
+
+import com.brazcubas.apsii.config.ApiException;
+import com.brazcubas.apsii.config.DateTimeUtils;
+import com.brazcubas.apsii.config.QualityRules.Quality;
+import com.brazcubas.apsii.model.ApiDtos;
+import com.brazcubas.apsii.model.Forecast;
+import com.brazcubas.apsii.model.PredictionModel;
+import com.brazcubas.apsii.repository.ForecastRepository;
+import org.springframework.stereotype.Service;
+
+import java.time.DateTimeException;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+@Service
+public class ForecastService {
+    private static final String NEARBY_DISCLAIMER =
+            &quot;A previsão está associada à probe RIPE Atlas selecionada como referência geográfica &quot;
+                    + &quot;e não representa uma medição direta do dispositivo do usuário.&quot;;
+    private static final String LOCATION_PRIVACY =
+            &quot;As coordenadas públicas das probes recebem proteção de privacidade do RIPE Atlas &quot;
+                    + &quot;e não devem ser tratadas como a localização exata do usuário.&quot;;
+
+    private final ForecastRepository repository;
+    private final LocationService locationService;
+    private final ModelService modelService;
+    private final QualityClassifier classifier;
+    private final RecommendationService recommendations;
+
+    public ForecastService(
+            ForecastRepository repository,
+            LocationService locationService,
+            ModelService modelService,
+            QualityClassifier classifier,
+<span class="fc" id="L44">            RecommendationService recommendations) {</span>
+<span class="fc" id="L45">        this.repository = repository;</span>
+<span class="fc" id="L46">        this.locationService = locationService;</span>
+<span class="fc" id="L47">        this.modelService = modelService;</span>
+<span class="fc" id="L48">        this.classifier = classifier;</span>
+<span class="fc" id="L49">        this.recommendations = recommendations;</span>
+<span class="fc" id="L50">    }</span>
+
+    public ApiDtos.ProbeForecastResponse getProbeForecast(int probeId, String modelId) {
+<span class="nc" id="L53">        PredictionModel model = modelService.requireActive(modelId);</span>
+<span class="nc" id="L54">        Forecast forecast = selectCurrent(requireProbeRecords(model.id(), probeId));</span>
+<span class="nc" id="L55">        QualityClassifier.QualityAssessment assessment = assess(forecast);</span>
+<span class="nc" id="L56">        return new ApiDtos.ProbeForecastResponse(</span>
+<span class="nc" id="L57">                modelReference(model),</span>
+                probeId,
+<span class="nc" id="L59">                new ApiDtos.LocationWithCountry(forecast.latitude(), forecast.longitude(), forecast.countryCode()),</span>
+                new ApiDtos.PredictionDetail(
+<span class="nc" id="L61">                        forecast.predictionFor(), forecast.predictedAvgRttMs(),</span>
+<span class="nc" id="L62">                        forecast.predictedPacketLossPct(), forecast.modelConfidence()),</span>
+<span class="nc" id="L63">                new ApiDtos.Assessment(assessment.quality(), assessment.qualityScore()),</span>
+<span class="nc" id="L64">                recommendations.forQuality(assessment.quality()));</span>
+    }
+
+    public ApiDtos.TimelineResponse getTimeline(
+            int probeId, String modelId, String from, String to, int limit) {
+<span class="fc" id="L69">        PredictionModel model = modelService.requireActive(modelId);</span>
+<span class="fc" id="L70">        Instant fromTime = parseOptionalTime(from, &quot;from&quot;);</span>
+<span class="fc" id="L71">        Instant toTime = parseOptionalTime(to, &quot;to&quot;);</span>
+<span class="pc bpc" id="L72" title="5 of 6 branches missed.">        if (fromTime != null &amp;&amp; toTime != null &amp;&amp; fromTime.isAfter(toTime)) {</span>
+<span class="nc" id="L73">            throw new ApiException(</span>
+                    400,
+                    &quot;INVALID_TIME_RANGE&quot;,
+                    &quot;The 'from' timestamp must be earlier than or equal to the 'to' timestamp.&quot;);
+        }
+<span class="fc" id="L78">        List&lt;Forecast&gt; records = requireProbeRecords(model.id(), probeId).stream()</span>
+<span class="pc bpc" id="L79" title="3 of 4 branches missed.">                .filter(record -&gt; fromTime == null || !record.predictionFor().isBefore(fromTime))</span>
+<span class="pc bpc" id="L80" title="3 of 4 branches missed.">                .filter(record -&gt; toTime == null || !record.predictionFor().isAfter(toTime))</span>
+<span class="fc" id="L81">                .limit(limit)</span>
+<span class="fc" id="L82">                .toList();</span>
+<span class="fc" id="L83">        List&lt;ApiDtos.TimelineItem&gt; items = records.stream()</span>
+<span class="fc" id="L84">                .map(record -&gt; {</span>
+<span class="fc" id="L85">                    QualityClassifier.QualityAssessment assessment = assess(record);</span>
+<span class="fc" id="L86">                    return new ApiDtos.TimelineItem(</span>
+<span class="fc" id="L87">                            record.predictionFor(), record.predictedAvgRttMs(), record.predictedPacketLossPct(),</span>
+<span class="fc" id="L88">                            assessment.quality(), assessment.qualityScore());</span>
+                })
+<span class="fc" id="L90">                .toList();</span>
+<span class="fc" id="L91">        return new ApiDtos.TimelineResponse(modelReference(model), probeId, items);</span>
+    }
+
+    public ApiDtos.NearbyForecastResponse getNearbyForecast(
+            double latitude, double longitude, String modelId, Double radiusKm) {
+<span class="nc" id="L96">        PredictionModel model = modelService.requireActive(modelId);</span>
+<span class="nc" id="L97">        LocationService.NearestProbe nearest = locationService.findNearest(latitude, longitude, radiusKm, model.id());</span>
+<span class="nc" id="L98">        Forecast forecast = selectCurrent(requireProbeRecords(model.id(), nearest.probe().probeId()));</span>
+<span class="nc" id="L99">        QualityClassifier.QualityAssessment assessment = assess(forecast);</span>
+<span class="nc" id="L100">        return new ApiDtos.NearbyForecastResponse(</span>
+<span class="nc" id="L101">                modelReference(model),</span>
+                new ApiDtos.RequestedLocation(latitude, longitude),
+<span class="nc" id="L103">                new ApiDtos.MatchedProbe(nearest.probe().probeId(), nearest.distanceKm()),</span>
+                new ApiDtos.PredictionSummary(
+<span class="nc" id="L105">                        forecast.predictionFor(), forecast.predictedAvgRttMs(), forecast.predictedPacketLossPct()),</span>
+<span class="nc" id="L106">                new ApiDtos.Assessment(assessment.quality(), assessment.qualityScore()),</span>
+<span class="nc" id="L107">                recommendations.forQuality(assessment.quality()),</span>
+<span class="nc" id="L108">                referenceMetadata());</span>
+    }
+
+    public ApiDtos.CompareResponse compare(int probeId, String predictionFor) {
+<span class="nc" id="L112">        List&lt;PredictionModel&gt; activeModels = modelService.listActiveModels();</span>
+<span class="nc" id="L113">        Map&lt;String, List&lt;Forecast&gt;&gt; timelines = new LinkedHashMap&lt;&gt;();</span>
+<span class="nc bnc" id="L114" title="All 2 branches missed.">        for (PredictionModel model : activeModels) {</span>
+<span class="nc" id="L115">            List&lt;Forecast&gt; records = repository.findByModelAndProbe(model.id(), probeId);</span>
+<span class="nc bnc" id="L116" title="All 2 branches missed.">            if (!records.isEmpty()) {</span>
+<span class="nc" id="L117">                timelines.put(model.id(), records);</span>
+            }
+<span class="nc" id="L119">        }</span>
+<span class="nc bnc" id="L120" title="All 2 branches missed.">        if (timelines.isEmpty()) {</span>
+<span class="nc" id="L121">            throw probeNotFound();</span>
+        }
+<span class="nc" id="L123">        Set&lt;Instant&gt; commonTimes = new HashSet&lt;&gt;(timelines.values().iterator().next().stream()</span>
+<span class="nc" id="L124">                .map(Forecast::predictionFor)</span>
+<span class="nc" id="L125">                .toList());</span>
+<span class="nc bnc" id="L126" title="All 2 branches missed.">        for (List&lt;Forecast&gt; timeline : timelines.values().stream().skip(1).toList()) {</span>
+<span class="nc" id="L127">            Set&lt;Instant&gt; times = timeline.stream().map(Forecast::predictionFor).collect(Collectors.toSet());</span>
+<span class="nc" id="L128">            commonTimes.retainAll(times);</span>
+<span class="nc" id="L129">        }</span>
+<span class="nc bnc" id="L130" title="All 2 branches missed.">        if (commonTimes.isEmpty()) {</span>
+<span class="nc" id="L131">            throw noCommonPrediction();</span>
+        }
+<span class="nc" id="L133">        Instant target = parseOptionalTime(predictionFor, &quot;prediction_for&quot;);</span>
+        Instant chosen;
+<span class="nc bnc" id="L135" title="All 2 branches missed.">        if (target != null) {</span>
+<span class="nc bnc" id="L136" title="All 2 branches missed.">            if (!commonTimes.contains(target)) {</span>
+<span class="nc" id="L137">                throw noCommonPrediction();</span>
+            }
+<span class="nc" id="L139">            chosen = target;</span>
+        } else {
+<span class="nc" id="L141">            chosen = selectCurrentTime(commonTimes);</span>
+        }
+<span class="nc" id="L143">        Map&lt;String, PredictionModel&gt; catalog = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L144">        activeModels.forEach(model -&gt; catalog.put(model.id(), model));</span>
+<span class="nc" id="L145">        List&lt;ApiDtos.CompareModelItem&gt; items = timelines.entrySet().stream()</span>
+<span class="nc" id="L146">                .map(entry -&gt; {</span>
+<span class="nc" id="L147">                    Forecast forecast = entry.getValue().stream()</span>
+<span class="nc" id="L148">                            .filter(record -&gt; record.predictionFor().equals(chosen))</span>
+<span class="nc" id="L149">                            .findFirst()</span>
+<span class="nc" id="L150">                            .orElseThrow();</span>
+<span class="nc" id="L151">                    Quality quality = assess(forecast).quality();</span>
+<span class="nc" id="L152">                    PredictionModel model = catalog.get(entry.getKey());</span>
+<span class="nc" id="L153">                    return new ApiDtos.CompareModelItem(</span>
+<span class="nc" id="L154">                            model.id(), model.name(), forecast.predictedAvgRttMs(),</span>
+<span class="nc" id="L155">                            forecast.predictedPacketLossPct(), quality);</span>
+                })
+<span class="nc" id="L157">                .sorted(Comparator.comparing(ApiDtos.CompareModelItem::modelName, String.CASE_INSENSITIVE_ORDER))</span>
+<span class="nc" id="L158">                .toList();</span>
+<span class="nc" id="L159">        return new ApiDtos.CompareResponse(probeId, chosen, items);</span>
+    }
+
+    public Forecast selectClosestRecord(String modelId, int probeId, Instant target) {
+<span class="nc" id="L163">        return requireProbeRecords(modelId, probeId).stream()</span>
+<span class="nc" id="L164">                .min(Comparator.comparing(record -&gt; Duration.between(target, record.predictionFor()).abs()))</span>
+<span class="nc" id="L165">                .orElseThrow(() -&gt; probeNotFound());</span>
+    }
+
+    public PredictionModel requireActiveModel(String modelId) {
+<span class="nc" id="L169">        return modelService.requireActive(modelId);</span>
+    }
+
+    public ApiDtos.NearbyMetadata referenceMetadata() {
+<span class="nc" id="L173">        return new ApiDtos.NearbyMetadata(NEARBY_DISCLAIMER, LOCATION_PRIVACY);</span>
+    }
+
+    private List&lt;Forecast&gt; requireProbeRecords(String modelId, int probeId) {
+<span class="fc" id="L177">        List&lt;Forecast&gt; records = repository.findByModelAndProbe(modelId, probeId);</span>
+<span class="pc bpc" id="L178" title="1 of 2 branches missed.">        if (records.isEmpty()) {</span>
+<span class="nc" id="L179">            throw probeNotFound();</span>
+        }
+<span class="fc" id="L181">        return records;</span>
+    }
+
+    private QualityClassifier.QualityAssessment assess(Forecast forecast) {
+<span class="fc" id="L185">        return classifier.assess(forecast.predictedAvgRttMs(), forecast.predictedPacketLossPct());</span>
+    }
+
+    private static Forecast selectCurrent(List&lt;Forecast&gt; records) {
+<span class="nc" id="L189">        Instant now = Instant.now();</span>
+<span class="nc" id="L190">        return records.stream()</span>
+<span class="nc bnc" id="L191" title="All 2 branches missed.">                .filter(record -&gt; !record.predictionFor().isBefore(now))</span>
+<span class="nc" id="L192">                .min(Comparator.comparing(Forecast::predictionFor))</span>
+<span class="nc" id="L193">                .orElseGet(() -&gt; records.stream().max(Comparator.comparing(Forecast::predictionFor)).orElseThrow());</span>
+    }
+
+    private static Instant selectCurrentTime(Set&lt;Instant&gt; times) {
+<span class="nc" id="L197">        Instant now = Instant.now();</span>
+<span class="nc" id="L198">        return times.stream()</span>
+<span class="nc bnc" id="L199" title="All 2 branches missed.">                .filter(time -&gt; !time.isBefore(now))</span>
+<span class="nc" id="L200">                .min(Comparator.naturalOrder())</span>
+<span class="nc" id="L201">                .orElseGet(() -&gt; times.stream().max(Comparator.naturalOrder()).orElseThrow());</span>
+    }
+
+    private static ApiDtos.ModelReference modelReference(PredictionModel model) {
+<span class="fc" id="L205">        return new ApiDtos.ModelReference(model.id(), model.name(), model.version());</span>
+    }
+
+    private static Instant parseOptionalTime(String value, String field) {
+<span class="pc bpc" id="L209" title="3 of 4 branches missed.">        if (value == null || value.isBlank()) {</span>
+<span class="fc" id="L210">            return null;</span>
+        }
+        try {
+<span class="nc" id="L213">            return DateTimeUtils.parseUtc(value);</span>
+<span class="nc" id="L214">        } catch (DateTimeException exception) {</span>
+<span class="nc" id="L215">            throw ApiException.validation(field, &quot;must be an ISO-8601 timestamp&quot;);</span>
+        }
+    }
+
+    private static ApiException probeNotFound() {
+<span class="nc" id="L220">        return new ApiException(404, &quot;PROBE_NOT_FOUND&quot;, &quot;No prediction data was found for the requested probe.&quot;);</span>
+    }
+
+    private static ApiException noCommonPrediction() {
+<span class="nc" id="L224">        return new ApiException(</span>
+                404,
+                &quot;NO_COMMON_PREDICTION&quot;,
+                &quot;No shared prediction instant was found across active models for this probe.&quot;);
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

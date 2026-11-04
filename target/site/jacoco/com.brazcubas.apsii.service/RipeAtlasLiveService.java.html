@@ -1,0 +1,285 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="pt"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>RipeAtlasLiveService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Connectivity Forecast API</a> &gt; <a href="index.source.html" class="el_package">com.brazcubas.apsii.service</a> &gt; <span class="el_source">RipeAtlasLiveService.java</span></div><h1>RipeAtlasLiveService.java</h1><pre class="source lang-java linenums">package com.brazcubas.apsii.service;
+
+import com.brazcubas.apsii.config.ActivityRules;
+import com.brazcubas.apsii.config.QualityRules.Quality;
+import com.brazcubas.apsii.model.ApiDtos;
+import com.brazcubas.apsii.model.LiveTelemetryDtos.LiveSyncStatusResponse;
+import com.brazcubas.apsii.model.LiveTelemetryDtos.LiveTelemetryResponse;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
+
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicReference;
+
+/**
+ * Serviço responsável por consultar telemetria ao vivo da API do RIPE Atlas,
+ * manter cache em memória e sincronizar periodicamente em segundo plano.
+ */
+@Service
+public class RipeAtlasLiveService {
+<span class="fc" id="L35">    private static final Logger logger = LoggerFactory.getLogger(RipeAtlasLiveService.class);</span>
+<span class="fc" id="L36">    private static final Duration HTTP_TIMEOUT = Duration.ofSeconds(5);</span>
+<span class="fc" id="L37">    private static final Duration CACHE_TTL = Duration.ofMinutes(5);</span>
+
+    private final QualityClassifier classifier;
+    private final RecommendationService recommendationService;
+    private final ObjectMapper objectMapper;
+    private final HttpClient httpClient;
+
+    private final String baseUrl;
+    private final int defaultMeasurementId;
+    private final boolean liveSyncEnabled;
+    private final long syncRateMs;
+    private final List&lt;Integer&gt; monitoredProbes;
+
+<span class="fc" id="L50">    private final ConcurrentMap&lt;Integer, LiveTelemetryResponse&gt; cache = new ConcurrentHashMap&lt;&gt;();</span>
+<span class="fc" id="L51">    private final AtomicReference&lt;Instant&gt; lastSyncAt = new AtomicReference&lt;&gt;();</span>
+
+    public RipeAtlasLiveService(
+            QualityClassifier classifier,
+            RecommendationService recommendationService,
+            ObjectMapper objectMapper,
+            @Value(&quot;${api.ripe-atlas.base-url:https://atlas.ripe.net/api/v2}&quot;) String baseUrl,
+            @Value(&quot;${api.ripe-atlas.default-measurement-id:1001}&quot;) int defaultMeasurementId,
+            @Value(&quot;${api.ripe-atlas.live-sync.enabled:true}&quot;) boolean liveSyncEnabled,
+            @Value(&quot;${api.ripe-atlas.sync-rate-ms:600000}&quot;) long syncRateMs,
+<span class="fc" id="L61">            @Value(&quot;${api.ripe-atlas.monitored-probes:6410,6891,6349,7019,7242,7307,6602,6790,7113,7508}&quot;) String monitoredProbesStr) {</span>
+<span class="fc" id="L62">        this.classifier = classifier;</span>
+<span class="fc" id="L63">        this.recommendationService = recommendationService;</span>
+<span class="fc" id="L64">        this.objectMapper = objectMapper;</span>
+<span class="fc" id="L65">        this.baseUrl = baseUrl.replaceAll(&quot;/+$&quot;, &quot;&quot;);</span>
+<span class="fc" id="L66">        this.defaultMeasurementId = defaultMeasurementId;</span>
+<span class="fc" id="L67">        this.liveSyncEnabled = liveSyncEnabled;</span>
+<span class="fc" id="L68">        this.syncRateMs = syncRateMs;</span>
+<span class="fc" id="L69">        this.monitoredProbes = parseProbeIds(monitoredProbesStr);</span>
+<span class="fc" id="L70">        this.httpClient = HttpClient.newBuilder()</span>
+<span class="fc" id="L71">                .connectTimeout(HTTP_TIMEOUT)</span>
+<span class="fc" id="L72">                .build();</span>
+<span class="fc" id="L73">    }</span>
+
+    /**
+     * Consulta a telemetria mais recente para uma probe (retorna do cache ou consulta ao vivo).
+     */
+    public LiveTelemetryResponse getLiveTelemetry(int probeId) {
+<span class="fc" id="L79">        LiveTelemetryResponse cached = cache.get(probeId);</span>
+<span class="pc bpc" id="L80" title="3 of 4 branches missed.">        if (cached != null &amp;&amp; Duration.between(cached.fetchedAt(), Instant.now()).compareTo(CACHE_TTL) &lt; 0) {</span>
+<span class="nc" id="L81">            return cached;</span>
+        }
+
+        try {
+<span class="fc" id="L85">            LiveTelemetryResponse fresh = fetchFromRipeAtlas(probeId, defaultMeasurementId);</span>
+<span class="pc bpc" id="L86" title="1 of 2 branches missed.">            if (fresh != null) {</span>
+<span class="fc" id="L87">                cache.put(probeId, fresh);</span>
+<span class="fc" id="L88">                return fresh;</span>
+            }
+<span class="nc" id="L90">        } catch (Exception ex) {</span>
+<span class="nc" id="L91">            logger.warn(&quot;Falha ao consultar RIPE Atlas ao vivo para probe {}: {}&quot;, probeId, ex.getMessage());</span>
+<span class="nc" id="L92">        }</span>
+
+        // Fallback resiliente caso a chamada falhe
+<span class="nc bnc" id="L95" title="All 2 branches missed.">        if (cached != null) {</span>
+<span class="nc" id="L96">            return new LiveTelemetryResponse(</span>
+<span class="nc" id="L97">                    cached.probeId(), cached.measurementId(), &quot;RIPE_ATLAS_CACHE_FALLBACK&quot;,</span>
+<span class="nc" id="L98">                    cached.avgRttMs(), cached.minRttMs(), cached.maxRttMs(), cached.packetLossPct(),</span>
+<span class="nc" id="L99">                    cached.sentPackets(), cached.receivedPackets(), cached.measuredAt(), Instant.now(),</span>
+<span class="nc" id="L100">                    cached.quality(), cached.qualityScore(), cached.recommendation(), cached.recommendationMessage(),</span>
+                    &quot;Dados retornados do cache devido à indisponibilidade temporária da API externa&quot;);
+        }
+
+<span class="nc" id="L104">        return createSimulatedFallback(probeId);</span>
+    }
+
+    /**
+     * Retorna todas as telemetrias armazenadas no cache local.
+     */
+    public List&lt;LiveTelemetryResponse&gt; getAllCachedTelemetry() {
+<span class="fc" id="L111">        return new ArrayList&lt;&gt;(cache.values());</span>
+    }
+
+    /**
+     * Status atual do agendador e do cache.
+     */
+    public LiveSyncStatusResponse getStatus() {
+<span class="fc" id="L118">        return new LiveSyncStatusResponse(</span>
+                liveSyncEnabled,
+                defaultMeasurementId,
+                syncRateMs,
+<span class="fc" id="L122">                lastSyncAt.get(),</span>
+<span class="fc" id="L123">                cache.size(),</span>
+                monitoredProbes);
+    }
+
+    /**
+     * Força sincronização imediata com o RIPE Atlas para todas as probes monitoradas.
+     */
+    public int refreshAll() {
+<span class="pc bpc" id="L131" title="1 of 2 branches missed.">        if (monitoredProbes.isEmpty()) {</span>
+<span class="nc" id="L132">            return 0;</span>
+        }
+<span class="fc" id="L134">        return syncBatch(monitoredProbes);</span>
+    }
+
+    /**
+     * Agendador periódico em segundo plano.
+     */
+    @Scheduled(fixedRateString = &quot;${api.ripe-atlas.sync-rate-ms:600000}&quot;, initialDelay = 5000)
+    public void scheduledSync() {
+<span class="nc bnc" id="L142" title="All 2 branches missed.">        if (!liveSyncEnabled) {</span>
+<span class="nc" id="L143">            logger.debug(&quot;Sincronização ao vivo do RIPE Atlas está desativada por configuração.&quot;);</span>
+<span class="nc" id="L144">            return;</span>
+        }
+        try {
+<span class="nc" id="L147">            logger.info(&quot;Iniciando sincronização periódica de telemetria RIPE Atlas para {} probes...&quot;, monitoredProbes.size());</span>
+<span class="nc" id="L148">            int updated = refreshAll();</span>
+<span class="nc" id="L149">            logger.info(&quot;Sincronização RIPE Atlas concluída: {} medições atualizadas em cache.&quot;, updated);</span>
+<span class="nc" id="L150">        } catch (Exception e) {</span>
+<span class="nc" id="L151">            logger.warn(&quot;Erro durante sincronização agendada RIPE Atlas: {}&quot;, e.getMessage());</span>
+<span class="nc" id="L152">        }</span>
+<span class="nc" id="L153">    }</span>
+
+    private LiveTelemetryResponse fetchFromRipeAtlas(int probeId, int msmId) throws Exception {
+<span class="fc" id="L156">        String uri = String.format(&quot;%s/measurements/%d/latest/?probe_ids=%d&quot;, baseUrl, msmId, probeId);</span>
+<span class="fc" id="L157">        HttpRequest request = HttpRequest.newBuilder()</span>
+<span class="fc" id="L158">                .uri(URI.create(uri))</span>
+<span class="fc" id="L159">                .timeout(HTTP_TIMEOUT)</span>
+<span class="fc" id="L160">                .header(&quot;User-Agent&quot;, &quot;ConnectTech-APSII/1.0&quot;)</span>
+<span class="fc" id="L161">                .header(&quot;Accept&quot;, &quot;application/json&quot;)</span>
+<span class="fc" id="L162">                .GET()</span>
+<span class="fc" id="L163">                .build();</span>
+
+<span class="fc" id="L165">        HttpResponse&lt;String&gt; response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());</span>
+<span class="pc bpc" id="L166" title="2 of 4 branches missed.">        if (response.statusCode() != 200 || response.body().isBlank()) {</span>
+<span class="nc" id="L167">            logger.warn(&quot;RIPE Atlas API retornou status {} para probe {}&quot;, response.statusCode(), probeId);</span>
+<span class="nc" id="L168">            return null;</span>
+        }
+
+<span class="fc" id="L171">        JsonNode root = objectMapper.readTree(response.body());</span>
+<span class="pc bpc" id="L172" title="2 of 4 branches missed.">        if (!root.isArray() || root.isEmpty()) {</span>
+<span class="nc" id="L173">            return null;</span>
+        }
+
+<span class="fc" id="L176">        return parseMeasurementNode(root.get(0), &quot;RIPE_ATLAS_LIVE&quot;);</span>
+    }
+
+    private int syncBatch(List&lt;Integer&gt; probeIds) {
+<span class="pc bpc" id="L180" title="2 of 4 branches missed.">        if (probeIds == null || probeIds.isEmpty()) {</span>
+<span class="nc" id="L181">            return 0;</span>
+        }
+<span class="fc" id="L183">        String idList = String.join(&quot;,&quot;, probeIds.stream().map(String::valueOf).toList());</span>
+<span class="fc" id="L184">        String uri = String.format(&quot;%s/measurements/%d/latest/?probe_ids=%s&quot;, baseUrl, defaultMeasurementId, idList);</span>
+
+        try {
+<span class="fc" id="L187">            HttpRequest request = HttpRequest.newBuilder()</span>
+<span class="fc" id="L188">                    .uri(URI.create(uri))</span>
+<span class="fc" id="L189">                    .timeout(HTTP_TIMEOUT.multipliedBy(2))</span>
+<span class="fc" id="L190">                    .header(&quot;User-Agent&quot;, &quot;ConnectTech-APSII/1.0&quot;)</span>
+<span class="fc" id="L191">                    .header(&quot;Accept&quot;, &quot;application/json&quot;)</span>
+<span class="fc" id="L192">                    .GET()</span>
+<span class="fc" id="L193">                    .build();</span>
+
+<span class="fc" id="L195">            HttpResponse&lt;String&gt; response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());</span>
+<span class="pc bpc" id="L196" title="2 of 4 branches missed.">            if (response.statusCode() != 200 || response.body().isBlank()) {</span>
+<span class="nc" id="L197">                logger.warn(&quot;Falha no lote RIPE Atlas: status {}&quot;, response.statusCode());</span>
+<span class="nc" id="L198">                return 0;</span>
+            }
+
+<span class="fc" id="L201">            JsonNode root = objectMapper.readTree(response.body());</span>
+<span class="pc bpc" id="L202" title="1 of 2 branches missed.">            if (!root.isArray()) {</span>
+<span class="nc" id="L203">                return 0;</span>
+            }
+
+<span class="fc" id="L206">            int count = 0;</span>
+<span class="fc bfc" id="L207" title="All 2 branches covered.">            for (JsonNode item : root) {</span>
+<span class="fc" id="L208">                LiveTelemetryResponse telemetry = parseMeasurementNode(item, &quot;RIPE_ATLAS_LIVE&quot;);</span>
+<span class="pc bpc" id="L209" title="1 of 2 branches missed.">                if (telemetry != null) {</span>
+<span class="fc" id="L210">                    cache.put(telemetry.probeId(), telemetry);</span>
+<span class="fc" id="L211">                    count++;</span>
+                }
+<span class="fc" id="L213">            }</span>
+<span class="fc" id="L214">            lastSyncAt.set(Instant.now());</span>
+<span class="fc" id="L215">            return count;</span>
+<span class="nc" id="L216">        } catch (Exception ex) {</span>
+<span class="nc" id="L217">            logger.warn(&quot;Exceção na sincronização de lote RIPE Atlas: {}&quot;, ex.getMessage());</span>
+<span class="nc" id="L218">            return 0;</span>
+        }
+    }
+
+    private LiveTelemetryResponse parseMeasurementNode(JsonNode node, String source) {
+<span class="pc bpc" id="L223" title="1 of 2 branches missed.">        if (node == null) return null;</span>
+
+<span class="fc" id="L225">        int probeId = node.path(&quot;prb_id&quot;).asInt(0);</span>
+<span class="fc" id="L226">        int msmId = node.path(&quot;msm_id&quot;).asInt(defaultMeasurementId);</span>
+<span class="fc" id="L227">        double avgRtt = node.path(&quot;avg&quot;).asDouble(30.0);</span>
+<span class="fc" id="L228">        double minRtt = node.path(&quot;min&quot;).asDouble(avgRtt);</span>
+<span class="fc" id="L229">        double maxRtt = node.path(&quot;max&quot;).asDouble(avgRtt);</span>
+<span class="fc" id="L230">        int sent = node.path(&quot;sent&quot;).asInt(3);</span>
+<span class="fc" id="L231">        int rcvd = node.path(&quot;rcvd&quot;).asInt(3);</span>
+<span class="fc" id="L232">        long timestampSec = node.path(&quot;timestamp&quot;).asLong(Instant.now().getEpochSecond());</span>
+
+<span class="pc bpc" id="L234" title="1 of 2 branches missed.">        double lossPct = sent &gt; 0 ? Math.max(0.0, ((sent - rcvd) / (double) sent) * 100.0) : 0.0;</span>
+<span class="fc" id="L235">        Instant measuredAt = Instant.ofEpochSecond(timestampSec);</span>
+<span class="fc" id="L236">        Instant fetchedAt = Instant.now();</span>
+
+<span class="fc" id="L238">        QualityClassifier.QualityAssessment assessment = classifier.assess(avgRtt, lossPct);</span>
+<span class="fc" id="L239">        ApiDtos.Recommendation recommendation = recommendationService.forQuality(assessment.quality());</span>
+
+<span class="fc" id="L241">        return new LiveTelemetryResponse(</span>
+                probeId,
+                msmId,
+                source,
+<span class="fc" id="L245">                Math.round(avgRtt * 10.0) / 10.0,</span>
+<span class="fc" id="L246">                Math.round(minRtt * 10.0) / 10.0,</span>
+<span class="fc" id="L247">                Math.round(maxRtt * 10.0) / 10.0,</span>
+<span class="fc" id="L248">                Math.round(lossPct * 10.0) / 10.0,</span>
+                sent,
+                rcvd,
+                measuredAt,
+                fetchedAt,
+<span class="fc" id="L253">                assessment.quality(),</span>
+<span class="fc" id="L254">                assessment.qualityScore(),</span>
+<span class="fc" id="L255">                recommendation.code(),</span>
+<span class="fc" id="L256">                recommendation.message(),</span>
+                &quot;Telemetria em tempo real sincronizada diretamente da rede RIPE Atlas&quot;);
+    }
+
+    private LiveTelemetryResponse createSimulatedFallback(int probeId) {
+<span class="nc" id="L261">        QualityClassifier.QualityAssessment assessment = classifier.assess(45.0, 0.0);</span>
+<span class="nc" id="L262">        ApiDtos.Recommendation rec = recommendationService.forQuality(assessment.quality());</span>
+<span class="nc" id="L263">        return new LiveTelemetryResponse(</span>
+                probeId,
+                defaultMeasurementId,
+                &quot;LOCAL_FALLBACK&quot;,
+                45.0, 42.0, 48.0, 0.0, 3, 3,
+<span class="nc" id="L268">                Instant.now(), Instant.now(),</span>
+<span class="nc" id="L269">                assessment.quality(), assessment.qualityScore(),</span>
+<span class="nc" id="L270">                rec.code(), rec.message(),</span>
+                &quot;Medição aproximada local (servidor RIPE Atlas inacessível ou probe não respondeu)&quot;);
+    }
+
+    private static List&lt;Integer&gt; parseProbeIds(String text) {
+<span class="pc bpc" id="L275" title="2 of 4 branches missed.">        if (text == null || text.isBlank()) {</span>
+<span class="nc" id="L276">            return List.of();</span>
+        }
+<span class="fc" id="L278">        return Arrays.stream(text.split(&quot;,&quot;))</span>
+<span class="fc" id="L279">                .map(String::trim)</span>
+<span class="pc bpc" id="L280" title="1 of 2 branches missed.">                .filter(s -&gt; !s.isEmpty())</span>
+<span class="fc" id="L281">                .map(Integer::parseInt)</span>
+<span class="fc" id="L282">                .toList();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

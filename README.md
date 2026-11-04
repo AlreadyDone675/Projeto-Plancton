@@ -1,27 +1,57 @@
-# Connectivity Forecast API
+# Connectivity Forecast API — ConnectTech
 
-Reimplementação Java/Spring Boot da [API de referência](https://github.com/LiniiS/connectivity-forecast-api), usada como artefato educacional de APS II.
+API REST desenvolvida em Java e Spring Boot para previsão e análise de qualidade de conexão de rede, desenvolvida para a disciplina de Análise e Projeto de Sistemas II (APS II — Squad Plancton).
 
-## Executar
+---
 
-Requisitos: Java 17 e Maven 3.9+.
+## 🚀 Como Executar
+
+### Pré-requisitos
+- **Java 17+**
+- **Maven 3.9+**
+
+### Execução
 
 ```bash
+# Rodar os testes
 mvn test
+
+# Iniciar o servidor
 mvn spring-boot:run
 ```
 
-Swagger UI: `http://localhost:8080/swagger-ui.html`  
-OpenAPI: `http://localhost:8080/v3/api-docs`
+A aplicação subirá em `http://localhost:8080`.
 
-## Escopo
+---
 
-API local com catálogo de modelos e previsões mockadas. Fixture igual à referência: 4 modelos ativos, 10 probes e 24 instantes (960 previsões); catálogo também contém modelo inativo. Dados fictícios. Não consulta RIPE Atlas, não treina nem executa modelos, não usa banco de dados e não exige deploy. Classificação e recomendações são regras experimentais, não padrões científicos.
+## 📖 Documentação Interativa
 
-## Estrutura
+Após iniciar o servidor, acesse:
+- **Swagger UI:** [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html)
+- **OpenAPI Docs (JSON):** [http://localhost:8080/v3/api-docs](http://localhost:8080/v3/api-docs)
 
-Separação em controllers, services, repositories, modelos de domínio/DTOs e configuração. API versionada em `/api/v1`, com recursos de health, modelos, localizações, previsões e atividades.
+---
 
-## Documentação
+## 📌 Principais Endpoints (`/api/v1`)
 
-README e OpenAPI são pontos de partida. Completar em exercício: descrição dos endpoints, parâmetros e validações, exemplos de requisição/resposta, códigos de erro e origem dos campos. Referência à licença MIT da API de origem preservada neste projeto.
+| Método | Rota | Descrição |
+| :--- | :--- | :--- |
+| `GET` | `/api/v1/health` | Estado de saúde da API |
+| `GET` | `/api/v1/models` | Catálogo de modelos de predição |
+| `GET` | `/api/v1/locations` | Lista de probes e localizações |
+| `GET` | `/api/v1/forecasts/nearby` | Consulta de previsão por geolocalização |
+| `POST` | `/api/v1/activity/check` | Validação de adequação para atividade |
+
+---
+
+## 🎯 Escopo e Características
+
+- **Simulação Local:** Dados em memória com fixtures mockadas coletados pela api do RIPE atlas com um script em python (4 modelos ativos, 20 probes e 1920 previsões).
+- **Sem Banco Externo:** Não depende de banco de dados nem serviços externos para execução local.
+- **Arquitetura em Camadas:** Estruturada em Controllers, Services, Repositories e DTOs.
+
+---
+
+## 📄 Licença
+
+Reimplementação baseada na [API de referência](https://github.com/LiniiS/connectivity-forecast-api) sob licença MIT.

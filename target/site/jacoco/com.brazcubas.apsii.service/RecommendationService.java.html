@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="pt"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>RecommendationService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Connectivity Forecast API</a> &gt; <a href="index.source.html" class="el_package">com.brazcubas.apsii.service</a> &gt; <span class="el_source">RecommendationService.java</span></div><h1>RecommendationService.java</h1><pre class="source lang-java linenums">package com.brazcubas.apsii.service;
+
+import com.brazcubas.apsii.config.ActivityRules;
+import com.brazcubas.apsii.config.ActivityRules.Activity;
+import com.brazcubas.apsii.config.ActivityRules.Recommendation;
+import com.brazcubas.apsii.config.QualityRules.Quality;
+import com.brazcubas.apsii.model.ApiDtos;
+import org.springframework.stereotype.Service;
+
+/**
+ * Gera recomendação de uso a partir da classificação de qualidade e atividade.
+ */
+@Service
+<span class="fc" id="L14">public class RecommendationService {</span>
+
+    /**
+     * Retorna recomendação para uma atividade dada a qualidade prevista.
+     *
+     * @param quality  GOOD, MODERATE ou UNSTABLE
+     * @param activity uma atividade do domínio
+     * @return recomendação
+     */
+    public Recommendation recommend(String quality, Activity activity) {
+<span class="nc" id="L24">        return forActivity(activity, Quality.valueOf(quality)).recommendation().code();</span>
+    }
+
+    public ApiDtos.Recommendation forQuality(Quality quality) {
+<span class="fc bfc" id="L28" title="All 3 branches covered.">        return switch (quality) {</span>
+<span class="fc" id="L29">            case GOOD -&gt; new ApiDtos.Recommendation(</span>
+                    Recommendation.NORMAL_USE,
+                    &quot;A conexão prevista está adequada para atividades online neste período.&quot;);
+<span class="fc" id="L32">            case MODERATE -&gt; new ApiDtos.Recommendation(</span>
+                    Recommendation.REDUCE_NETWORK_USAGE,
+                    &quot;A conexão pode apresentar alguma instabilidade neste período.&quot;);
+<span class="fc" id="L35">            case UNSTABLE -&gt; new ApiDtos.Recommendation(</span>
+                    Recommendation.PREPARE_OFFLINE,
+                    &quot;Considere preparar recursos offline para este período.&quot;);
+        };
+    }
+
+    public ActivityRecommendation forActivity(Activity activity, Quality quality) {
+<span class="nc" id="L42">        boolean suitable = ActivityRules.qualityRank(quality)</span>
+<span class="nc bnc" id="L43" title="All 2 branches missed.">                &gt;= ActivityRules.qualityRank(ActivityRules.minimumQuality(activity));</span>
+<span class="nc bnc" id="L44" title="All 4 branches missed.">        Recommendation code = suitable &amp;&amp; quality == Quality.GOOD</span>
+<span class="nc" id="L45">                ? Recommendation.NORMAL_USE</span>
+<span class="nc bnc" id="L46" title="All 2 branches missed.">                : quality == Quality.UNSTABLE</span>
+<span class="nc" id="L47">                        ? Recommendation.PREPARE_OFFLINE</span>
+<span class="nc" id="L48">                        : Recommendation.REDUCE_NETWORK_USAGE;</span>
+<span class="nc" id="L49">        return new ActivityRecommendation(suitable, new ApiDtos.Recommendation(code, activityMessage(activity, quality)));</span>
+    }
+
+    private static String activityMessage(Activity activity, Quality quality) {
+<span class="nc bnc" id="L53" title="All 6 branches missed.">        return switch (activity) {</span>
+<span class="nc bnc" id="L54" title="All 3 branches missed.">            case VIDEO_CALL -&gt; switch (quality) {</span>
+<span class="nc" id="L55">                case GOOD -&gt; &quot;A conexão prevista está adequada para uma chamada de vídeo neste período.&quot;;</span>
+<span class="nc" id="L56">                case MODERATE -&gt; &quot;Uma chamada de vídeo pode sofrer oscilações neste período.&quot;;</span>
+<span class="nc" id="L57">                case UNSTABLE -&gt; &quot;Há risco de instabilidade para uma chamada de vídeo neste período.&quot;;</span>
+            };
+<span class="nc bnc" id="L59" title="All 3 branches missed.">            case AUDIO_CALL -&gt; switch (quality) {</span>
+<span class="nc" id="L60">                case GOOD -&gt; &quot;A conexão prevista está adequada para uma chamada de áudio neste período.&quot;;</span>
+<span class="nc" id="L61">                case MODERATE -&gt; &quot;Uma chamada de áudio pode apresentar alguma instabilidade neste período.&quot;;</span>
+<span class="nc" id="L62">                case UNSTABLE -&gt; &quot;Há risco de instabilidade para uma chamada de áudio neste período.&quot;;</span>
+            };
+<span class="nc bnc" id="L64" title="All 3 branches missed.">            case STREAMING -&gt; switch (quality) {</span>
+<span class="nc" id="L65">                case GOOD -&gt; &quot;A conexão prevista está adequada para streaming neste período.&quot;;</span>
+<span class="nc" id="L66">                case MODERATE -&gt; &quot;O streaming pode apresentar buffering neste período.&quot;;</span>
+<span class="nc" id="L67">                case UNSTABLE -&gt; &quot;Há risco de interrupções no streaming neste período.&quot;;</span>
+            };
+<span class="nc bnc" id="L69" title="All 3 branches missed.">            case FILE_UPLOAD -&gt; switch (quality) {</span>
+<span class="nc" id="L70">                case GOOD -&gt; &quot;A conexão prevista está adequada para envio de arquivos neste período.&quot;;</span>
+<span class="nc" id="L71">                case MODERATE -&gt; &quot;O envio de arquivos pode ser mais lento neste período.&quot;;</span>
+<span class="nc" id="L72">                case UNSTABLE -&gt; &quot;Há risco de falha ou lentidão no envio de arquivos neste período.&quot;;</span>
+            };
+<span class="nc bnc" id="L74" title="All 3 branches missed.">            case WEB_BROWSING -&gt; switch (quality) {</span>
+<span class="nc" id="L75">                case GOOD -&gt; &quot;A conexão prevista está adequada para navegação neste período.&quot;;</span>
+<span class="nc" id="L76">                case MODERATE -&gt; &quot;A navegação pode ficar mais lenta neste período.&quot;;</span>
+<span class="nc" id="L77">                case UNSTABLE -&gt; &quot;A navegação pode ficar instável neste período.&quot;;</span>
+            };
+<span class="nc bnc" id="L79" title="All 3 branches missed.">            case MESSAGING -&gt; switch (quality) {</span>
+<span class="nc" id="L80">                case GOOD -&gt; &quot;A conexão prevista está adequada para mensagens neste período.&quot;;</span>
+<span class="nc" id="L81">                case MODERATE -&gt; &quot;Mensagens devem funcionar, com possível atraso neste período.&quot;;</span>
+<span class="nc" id="L82">                case UNSTABLE -&gt; &quot;Mensagens podem atrasar; considere não depender só da rede neste período.&quot;;</span>
+            };
+        };
+    }
+
+<span class="nc" id="L87">    public record ActivityRecommendation(boolean suitable, ApiDtos.Recommendation recommendation) {}</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>
