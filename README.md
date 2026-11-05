@@ -7,8 +7,11 @@ API REST desenvolvida em Java e Spring Boot para previsão e análise de qualida
 ## 🚀 Como Executar
 
 ### Pré-requisitos
+```
 - **Java 17+**
 - **Maven 3.9+**
+- **Node.js**
+```
 
 ### Execução
 
