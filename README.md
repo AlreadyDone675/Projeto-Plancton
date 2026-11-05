@@ -18,9 +18,13 @@ mvn test
 
 # Iniciar o servidor
 mvn spring-boot:run
+
+# Iniciar pelo vs code
+dentro da pasta frontend
+npm run dev 
 ```
 
-A aplicação subirá em `http://localhost:8080`.
+A aplicação subirá em `http://localhost:8080`. se estiver pelo intelij. No vs code `http://localhost:5173/`
 
 ---
 
