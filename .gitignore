@@ -1,2 +1,86 @@
-#documentos
-/docs
+# ==========================================
+# ConnectTech — .gitignore Geral do Projeto
+# ==========================================
+
+# --- Java & Maven ---
+target/
+**/target/
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+*.log
+hs_err_pid*
+replay_pid*
+bin/
+
+# --- Node & Frontend ---
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+.vite/
+**/.vite/
+.npm
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.eslintcache
+
+# --- Mobile, Capacitor & Android ---
+*.apk
+*.aab
+frontend/ConnectTech.apk
+frontend/dist/ConnectTech.apk
+**/android/.gradle/
+**/android/build/
+**/android/app/build/
+**/android/local.properties
+**/android/capacitor-cordova-android-plugins/build/
+**/capacitor/.gradle/
+**/capacitor/build/
+.gradle/
+build/
+local.properties
+Captures/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+*.db
+*.sqlite3
+rede_monitoramento.db
+
+# --- IDEs & Editores ---
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+*.sublime-project
+*.sublime-workspace
+.project
+.classpath
+.settings/
+
+# --- Sistema Operacional & Arquivos Temporários ---
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*.tmp
+*.bak
+*.swp
+*~

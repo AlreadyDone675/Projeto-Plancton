@@ -1,0 +1,11 @@
+# ==========================================================
+# ConnectTech — Dependências Python (requirements.txt)
+# ==========================================================
+# O script de monitoramento ICMP (main.py) utiliza módulos nativos 
+# da biblioteca padrão do Python 3 (sqlite3, subprocess, re, time, os).
+#
+# As bibliotecas abaixo são recomendadas para execução de scripts de 
+# coleta, automação e consumo da API REST pública do RIPE Atlas:
+
+requests>=2.31.0
+urllib3>=2.0.0
