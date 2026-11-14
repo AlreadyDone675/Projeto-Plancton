@@ -28,7 +28,7 @@ public class ForecastController {
 
     public ForecastController(
             ForecastService forecastService,
-            @Value("${api.timeline-default-limit:24}") int timelineDefaultLimit,
+            @Value("${api.timeline-default-limit:48}") int timelineDefaultLimit,
             @Value("${api.timeline-max-limit:100}") int timelineMaxLimit) {
         this.forecastService = forecastService;
         if (timelineDefaultLimit < 1 || timelineDefaultLimit > timelineMaxLimit) {

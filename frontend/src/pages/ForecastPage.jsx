@@ -1,12 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ACTIVITIES, QUALITY, QUALITY_SHORT_LABELS } from '../config/qualityRules';
-import { forecastService } from '../service/forecastService';
-
-const DAY_OPTIONS = [
-  { id: 'today', label: 'Hoje' },
-  { id: 'tomorrow', label: 'Amanha' },
-  { id: 'after', label: 'Em 2 dias' }
-];
+import { QUALITY, QUALITY_SHORT_LABELS } from '../config/qualityRules';
 
 function buildSvgPath(items, width, height, padding) {
   if (!items || items.length === 0) return { linePath: '', areaPath: '', points: [] };
@@ -41,32 +34,34 @@ function buildSvgPath(items, width, height, padding) {
 export default function ForecastPage({
   nearbyForecast,
   timelineData,
-  allProbes,
   selectedProbeId,
-  onSelectProbe,
   onOpenSettings,
+  onOpenHelp,
+  onGoToAnalysis,
   currentHour = 9,
   clockDisplay,
   isLiveActive,
   isLiveSyncing,
   onRefreshLive
 }) {
-  // Inicia e mantem sincronizado no mesmo horario atual da Tela 1
+  const [viewDay, setViewDay] = useState('today');
   const [selectedHourIdx, setSelectedHourIdx] = useState(currentHour);
 
   useEffect(() => {
     setSelectedHourIdx(currentHour);
   }, [currentHour, selectedProbeId]);
 
-  // Opcao de marcar evento contida por padrao, abrindo apenas se o usuario quiser
-  const [plannerOpen, setPlannerOpen] = useState(false);
-  const [eventDay, setEventDay] = useState('tomorrow');
-  const [eventHourIdx, setEventHourIdx] = useState(18);
-  const [eventActivity, setEventActivity] = useState('VIDEO_CALL');
-  const [markedEvents, setMarkedEvents] = useState([]);
-
   const { probeInfo } = nearbyForecast;
-  const items = timelineData.items || [];
+  const allItems = timelineData.items || [];
+  const viewDayOffset = viewDay === 'tomorrow' && allItems.length >= 48 ? 24 : 0;
+  const items = useMemo(
+    () =>
+      allItems.length >= 48
+        ? allItems.slice(viewDayOffset, viewDayOffset + 24)
+        : allItems.slice(0, 24),
+    [allItems, viewDayOffset]
+  );
+
   const activeSlot = items[selectedHourIdx] || items[currentHour] || items[0];
 
   const stats = useMemo(() => {
@@ -84,48 +79,6 @@ export default function ForecastPage({
 
   const chart = useMemo(() => buildSvgPath(items, 340, 120, 14), [items]);
 
-  const currentEventCheck = useMemo(
-    () =>
-      forecastService.checkActivity({
-        probeId: selectedProbeId,
-        hour: eventHourIdx,
-        activity: eventActivity,
-        referenceHour: currentHour
-      }),
-    [selectedProbeId, eventHourIdx, eventActivity, currentHour, items]
-  );
-
-  const markedHoursSet = useMemo(
-    () => new Set(markedEvents.map((e) => e.hourIdx)),
-    [markedEvents]
-  );
-
-  const handleAddEvent = () => {
-    const dayObj = DAY_OPTIONS.find((d) => d.id === eventDay) || DAY_OPTIONS[1];
-    const newId = `evt-${Date.now()}`;
-    setMarkedEvents((prev) => [
-      {
-        id: newId,
-        dayId: dayObj.id,
-        dayLabel: dayObj.label,
-        hourIdx: eventHourIdx,
-        activityId: eventActivity
-      },
-      ...prev.filter(
-        (e) =>
-          !(
-            e.dayId === dayObj.id &&
-            e.hourIdx === eventHourIdx &&
-            e.activityId === eventActivity
-          )
-      )
-    ]);
-  };
-
-  const handleRemoveEvent = (id) => {
-    setMarkedEvents((prev) => prev.filter((e) => e.id !== id));
-  };
-
   const qualityClass = activeSlot ? activeSlot.quality.toLowerCase() : 'good';
   const strokeColor =
     activeSlot?.quality === QUALITY.GOOD
@@ -139,13 +92,8 @@ export default function ForecastPage({
   const dashOffset =
     circumference - ((activeSlot?.qualityScore || 0) / 100) * circumference;
 
-  const selectedActivityLabel =
-    ACTIVITIES.find((a) => a.id === eventActivity)?.label || 'Atividade';
-  const selectedDayLabel =
-    DAY_OPTIONS.find((d) => d.id === eventDay)?.label || 'Amanha';
-  const eventHourStr = `${String(eventHourIdx).padStart(2, '0')}:00`;
-
-  const isViewingNow = selectedHourIdx === currentHour;
+  const isViewingNow = viewDay === 'today' && selectedHourIdx === currentHour;
+  const viewDayLabel = viewDay === 'today' ? 'HOJE' : 'AMANHÃ';
 
   return (
     <div className="screen-content">
@@ -162,6 +110,15 @@ export default function ForecastPage({
           >
             {isLiveActive && <span className="live-dot" />}
             <span>{isLiveSyncing ? 'Atualizando...' : `Agora · ${clockDisplay}`}</span>
+          </button>
+          <button
+            type="button"
+            className="icon-btn"
+            aria-label="O que significam Ping e Perca de Pacotes"
+            title="Entenda o que significam Ping e Perca de Pacotes"
+            onClick={onOpenHelp}
+          >
+            <span className="help-q-mark">?</span>
           </button>
           <button
             type="button"
@@ -185,7 +142,7 @@ export default function ForecastPage({
         </div>
       </header>
 
-      {/* Seletor de Regiao */}
+      {/* Apenas a Area Reconhecida pela Localizacao */}
       <section className="region-row">
         <div className="region-title-group">
           <svg
@@ -200,31 +157,25 @@ export default function ForecastPage({
           </svg>
           <h1 className="region-title">{probeInfo.displayName}</h1>
         </div>
-        <select
-          aria-label="Selecionar estado"
-          className="region-select"
-          value={selectedProbeId}
-          onChange={(e) => onSelectProbe(Number(e.target.value))}
-        >
-          {allProbes.map((p) => (
-            <option key={p.probeId} value={p.probeId}>
-              {p.uf} - {p.city}
-            </option>
-          ))}
-        </select>
       </section>
 
-      {/* Bloco 1: Indice de Conexao Circular (Alinhado ao Horario Atual por padrao) */}
+      {/* Bloco 1: Indice de Conexao Circular */}
       <section className="primary-card">
         <div className="gauge-header-row">
           <span className="block-title">
-            INDICE DE CONEXAO · {isViewingNow ? `AGORA (${activeSlot.hourLabel})` : activeSlot.hourLabel}
+            INDICE DE CONEXAO ·{' '}
+            {isViewingNow
+              ? `AGORA (${activeSlot?.hourLabel})`
+              : `${viewDayLabel} · ${activeSlot?.hourLabel}`}
           </span>
           {!isViewingNow && (
             <button
               type="button"
               className="reset-now-btn"
-              onClick={() => setSelectedHourIdx(currentHour)}
+              onClick={() => {
+                setViewDay('today');
+                setSelectedHourIdx(currentHour);
+              }}
             >
               Voltar para Agora
             </button>
@@ -255,9 +206,9 @@ export default function ForecastPage({
             />
           </svg>
           <div className="gauge-center">
-            <span className="score-number">{activeSlot.qualityScore}</span>
+            <span className="score-number">{activeSlot?.qualityScore}</span>
             <span className={`score-status text-${qualityClass}`}>
-              {QUALITY_SHORT_LABELS[activeSlot.quality]}
+              {QUALITY_SHORT_LABELS[activeSlot?.quality]}
             </span>
           </div>
         </div>
@@ -268,22 +219,20 @@ export default function ForecastPage({
         <div className="metric-box">
           <span className="metric-label">PING</span>
           <span className="metric-big">
-            {activeSlot.predictedAvgRttMs.toFixed(1)} <small>ms</small>
+            {activeSlot?.predictedAvgRttMs.toFixed(1)} <small>ms</small>
           </span>
         </div>
 
         <div className="metric-box">
           <span className="metric-label">PERDA DE PACOTES</span>
           <span className="metric-big">
-            {activeSlot.predictedPacketLossPct.toFixed(2).replace('.', ',')} <small>%</small>
+            {activeSlot?.predictedPacketLossPct.toFixed(2).replace('.', ',')} <small>%</small>
           </span>
         </div>
       </section>
 
-      {/* Bloco 3: Intervalo de Latencia e Linha do Tempo 24h (RF002) */}
+      {/* Bloco 3: Grafico Temporal */}
       <section className="block-section">
-        <h2 className="block-title">INTERVALO DE LATENCIA (24H)</h2>
-
         <div className="chart-card">
           <div className="chart-stats-row">
             <span className="chart-stat-muted">
@@ -310,14 +259,13 @@ export default function ForecastPage({
             />
             {chart.points.map((pt, idx) => {
               const isSelected = idx === selectedHourIdx;
-              const isMarked = markedHoursSet.has(idx);
               return (
                 <circle
-                  key={pt.item.hourLabel}
+                  key={`${viewDay}-${pt.item.hourLabel}-${idx}`}
                   cx={pt.x}
                   cy={pt.y}
-                  r={isSelected ? 5.5 : isMarked ? 4.5 : 2.5}
-                  fill={isSelected ? strokeColor : isMarked ? '#0f172a' : '#0284c7'}
+                  r={isSelected ? 5.5 : 2.5}
+                  fill={isSelected ? strokeColor : '#0284c7'}
                   stroke="#ffffff"
                   strokeWidth="1.5"
                   style={{ cursor: 'pointer' }}
@@ -329,7 +277,11 @@ export default function ForecastPage({
 
           <div className="chart-axis-row">
             <span>00:00</span>
-            <span>{String(currentHour).padStart(2, '0')}:00 (Agora)</span>
+            <span>
+              {viewDay === 'today'
+                ? `${String(currentHour).padStart(2, '0')}:00 (Agora)`
+                : '12:00 (Amanhã)'}
+            </span>
             <span>23:00</span>
           </div>
         </div>
@@ -337,25 +289,50 @@ export default function ForecastPage({
 
       {/* Linha do Tempo Horaria (RF002) */}
       <section className="block-section">
-        <h2 className="block-title">LINHA DO TEMPO HORARIA</h2>
+        <div className="gauge-header-row" style={{ marginBottom: '8px' }}>
+          <h2 className="block-title" style={{ marginBottom: 0 }}>
+            LINHA DO TEMPO HORARIA ({viewDayLabel})
+          </h2>
+          <div style={{ display: 'flex', gap: '6px' }}>
+            <button
+              type="button"
+              className="reset-now-btn"
+              style={{
+                fontWeight: viewDay === 'today' ? 700 : 500,
+                opacity: viewDay === 'today' ? 1 : 0.65
+              }}
+              onClick={() => setViewDay('today')}
+            >
+              HOJE
+            </button>
+            <button
+              type="button"
+              className="reset-now-btn"
+              style={{
+                fontWeight: viewDay === 'tomorrow' ? 700 : 500,
+                opacity: viewDay === 'tomorrow' ? 1 : 0.65
+              }}
+              onClick={() => setViewDay('tomorrow')}
+            >
+              AMANHÃ
+            </button>
+          </div>
+        </div>
+
         <div className="timeline-strip">
           {items.map((slot, idx) => {
             const slotClass = slot.quality.toLowerCase();
             const isSelected = idx === selectedHourIdx;
-            const isNow = idx === currentHour;
-            const isMarked = markedHoursSet.has(idx);
+            const isNow = viewDay === 'today' && idx === currentHour;
             return (
               <button
-                key={slot.hourLabel}
+                key={`${viewDay}-${slot.hourLabel}-${idx}`}
                 type="button"
-                className={`timeline-pill ${isSelected ? 'active' : ''} ${
-                  isMarked ? 'marked' : ''
-                }`}
+                className={`timeline-pill ${isSelected ? 'active' : ''}`}
                 onClick={() => setSelectedHourIdx(idx)}
               >
                 <span className="timeline-hour">
                   {isNow ? 'Agora' : slot.hourLabel}
-                  {isMarked ? ' *' : ''}
                 </span>
                 <span className={`timeline-score badge-${slotClass}`}>
                   {slot.qualityScore}
@@ -367,152 +344,15 @@ export default function ForecastPage({
         </div>
       </section>
 
-      {/* Bloco 4: Marcar Evento Contido (Expande apenas quando o usuario clica) */}
+      {/* Botao direto para a Aba 3 (Analise) */}
       <section className="block-section">
         <button
           type="button"
-          className={`collapsible-trigger ${plannerOpen ? 'open' : ''}`}
-          onClick={() => setPlannerOpen((prev) => !prev)}
+          className="mark-event-btn"
+          onClick={onGoToAnalysis}
         >
-          <span>Marcar evento para consultar previsao</span>
-          <span className="collapsible-chevron">{plannerOpen ? 'Fechar' : 'Abrir'}</span>
+          Criar previsão de conexão
         </button>
-
-        {plannerOpen && (
-          <div className="event-planner-card">
-            <div className="planner-row-3">
-              <div className="planner-field">
-                <label className="planner-label" htmlFor="evt-day">
-                  Dia
-                </label>
-                <select
-                  id="evt-day"
-                  className="planner-select"
-                  value={eventDay}
-                  onChange={(e) => setEventDay(e.target.value)}
-                >
-                  {DAY_OPTIONS.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="planner-field">
-                <label className="planner-label" htmlFor="evt-hour">
-                  Horario
-                </label>
-                <select
-                  id="evt-hour"
-                  className="planner-select"
-                  value={eventHourIdx}
-                  onChange={(e) => setEventHourIdx(Number(e.target.value))}
-                >
-                  {items.map((slot, idx) => (
-                    <option key={slot.hourLabel} value={idx}>
-                      {slot.hourLabel}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="planner-field">
-                <label className="planner-label" htmlFor="evt-act">
-                  Atividade
-                </label>
-                <select
-                  id="evt-act"
-                  className="planner-select"
-                  value={eventActivity}
-                  onChange={(e) => setEventActivity(e.target.value)}
-                >
-                  {ACTIVITIES.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div
-              className={`event-preview-box ${
-                currentEventCheck.suitable ? 'preview-ok' : 'preview-warn'
-              }`}
-            >
-              <div className="event-preview-top">
-                <span className="event-preview-title">
-                  {selectedActivityLabel} · {selectedDayLabel} as {eventHourStr}
-                </span>
-                <span className="event-preview-badge">
-                  {currentEventCheck.forecast.qualityScore} pts ·{' '}
-                  {currentEventCheck.suitable ? 'Recomendado' : 'Instavel'}
-                </span>
-              </div>
-              <p className="event-preview-msg">{currentEventCheck.recommendation.message}</p>
-            </div>
-
-            <button type="button" className="mark-event-btn" onClick={handleAddEvent}>
-              Salvar evento na linha do tempo
-            </button>
-          </div>
-        )}
-
-        {markedEvents.length > 0 && (
-          <div className="marked-events-list">
-            {markedEvents.map((evt) => {
-              const evtCheck = forecastService.checkActivity({
-                probeId: selectedProbeId,
-                hour: evt.hourIdx,
-                activity: evt.activityId,
-                referenceHour: currentHour
-              });
-              const actName =
-                ACTIVITIES.find((a) => a.id === evt.activityId)?.label || evt.activityId;
-              const hourStr = `${String(evt.hourIdx).padStart(2, '0')}:00`;
-
-              return (
-                <div
-                  key={evt.id}
-                  className={`marked-event-item ${
-                    evt.hourIdx === selectedHourIdx ? 'active' : ''
-                  }`}
-                  onClick={() => setSelectedHourIdx(evt.hourIdx)}
-                >
-                  <div className="marked-event-info">
-                    <span className="marked-time">
-                      {evt.dayLabel} · {hourStr}
-                    </span>
-                    <span className="marked-act">{actName}</span>
-                  </div>
-
-                  <div className="marked-event-right">
-                    <span
-                      className={`status-badge ${
-                        evtCheck.suitable ? 'badge-good' : 'badge-unstable'
-                      }`}
-                    >
-                      {evtCheck.forecast.qualityScore} ·{' '}
-                      {evtCheck.suitable ? 'Recomendado' : 'Instavel'}
-                    </span>
-                    <button
-                      type="button"
-                      className="remove-evt-btn"
-                      aria-label="Remover evento"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleRemoveEvent(evt.id);
-                      }}
-                    >
-                      x
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
       </section>
     </div>
   );

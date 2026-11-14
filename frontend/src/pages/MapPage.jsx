@@ -8,6 +8,7 @@ export default function MapPage({
   selectedProbeId,
   onSelectProbe,
   onOpenSettings,
+  onOpenHelp,
   clockDisplay,
   isLiveActive,
   isLiveSyncing,
@@ -30,6 +31,15 @@ export default function MapPage({
           >
             {isLiveActive && <span className="live-dot" />}
             <span>{isLiveSyncing ? 'Atualizando...' : `Agora · ${clockDisplay}`}</span>
+          </button>
+          <button
+            type="button"
+            className="icon-btn"
+            aria-label="O que significam Ping e Perca de Pacotes"
+            title="Entenda o que significam Ping e Perca de Pacotes"
+            onClick={onOpenHelp}
+          >
+            <span className="help-q-mark">?</span>
           </button>
           <button
             type="button"
@@ -89,7 +99,11 @@ export default function MapPage({
           <span className="suggested-rtt">
             {prediction.predictedAvgRttMs.toFixed(1)} ms
           </span>
-          <span className="suggested-meta">
+          <span
+            className="suggested-meta"
+            title="% perca de pacotes"
+            data-tooltip="% perca de pacotes"
+          >
             {prediction.predictedPacketLossPct.toFixed(2).replace('.', ',')}%
           </span>
         </div>

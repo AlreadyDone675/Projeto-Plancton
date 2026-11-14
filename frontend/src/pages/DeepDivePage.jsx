@@ -1,12 +1,15 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ACTIVITIES, QUALITY_SHORT_LABELS } from '../config/qualityRules';
 import { forecastService } from '../service/forecastService';
 
 const DATE_OPTIONS = [
-  { id: 'today', label: 'Data: Hoje' },
-  { id: 'tomorrow', label: 'Data: Amanha' },
-  { id: 'after', label: 'Data: Em 2 dias' }
+  { id: 'today', label: 'HOJE', offset: 0 },
+  { id: 'tomorrow', label: 'AMANHÃ', offset: 24 }
 ];
+
+const SORTED_ACTIVITIES = [...ACTIVITIES].sort((a, b) =>
+  a.shortLabel.localeCompare(b.shortLabel, 'pt-BR')
+);
 
 function ActivityIcon({ id }) {
   switch (id) {
@@ -62,6 +65,7 @@ export default function DeepDivePage({
   selectedProbeId,
   onSelectProbe,
   onOpenSettings,
+  onOpenHelp,
   currentHour = 17,
   clockDisplay,
   dataVersion = 0,
@@ -72,20 +76,42 @@ export default function DeepDivePage({
   const [selectedDate, setSelectedDate] = useState('today');
   const [selectedHour, setSelectedHour] = useState(currentHour);
   const [selectedActivity, setSelectedActivity] = useState('VIDEO_CALL');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [showResult, setShowResult] = useState(false);
+  const timerRef = useRef(null);
 
   useEffect(() => {
     setSelectedHour(currentHour);
   }, [currentHour, selectedProbeId]);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
+
+  const handleGenerateForecast = () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    setShowResult(false);
+    setIsGenerating(true);
+    timerRef.current = setTimeout(() => {
+      setIsGenerating(false);
+      setShowResult(true);
+    }, 350);
+  };
+
+  const dayOffset = selectedDate === 'tomorrow' ? 24 : 0;
 
   const activityResult = useMemo(
     () =>
       forecastService.checkActivity({
         probeId: selectedProbeId,
         hour: selectedHour,
+        dayOffset,
         activity: selectedActivity,
         referenceHour: currentHour
       }),
-    [selectedProbeId, selectedHour, selectedActivity, currentHour, dataVersion]
+    [selectedProbeId, selectedHour, dayOffset, selectedActivity, currentHour, dataVersion]
   );
 
   const { probeInfo, suitable, forecast, recommendation } = activityResult;
@@ -118,6 +144,15 @@ export default function DeepDivePage({
           <button
             type="button"
             className="icon-btn"
+            aria-label="O que significam Ping e Perca de Pacotes"
+            title="Entenda o que significam Ping e Perca de Pacotes"
+            onClick={onOpenHelp}
+          >
+            <span className="help-q-mark">?</span>
+          </button>
+          <button
+            type="button"
+            className="icon-btn"
             aria-label="Abrir configuracoes"
             onClick={onOpenSettings}
           >
@@ -139,9 +174,9 @@ export default function DeepDivePage({
 
       <h1 className="region-title">Previsao de Conexao</h1>
 
-      {/* Bloco 1: Filtros de Localizacao, Data/Horario e Atividade (Prototipo 3) */}
+      {/* Bloco 1: Filtros organizados por ordem alfabetica */}
       <section className="filter-card">
-        {/* Seletor de Localizacao */}
+        {/* Seletor de Localizacao (ordem alfabetica) */}
         <div className="input-box">
           <svg
             className="input-icon"
@@ -157,7 +192,10 @@ export default function DeepDivePage({
             aria-label="Selecionar localizacao"
             className="full-select"
             value={selectedProbeId}
-            onChange={(e) => onSelectProbe(Number(e.target.value))}
+            onChange={(e) => {
+              setShowResult(false);
+              onSelectProbe(Number(e.target.value));
+            }}
           >
             {allProbes.map((p) => (
               <option key={p.probeId} value={p.probeId}>
@@ -167,7 +205,7 @@ export default function DeepDivePage({
           </select>
         </div>
 
-        {/* Seletor de Data e Horario */}
+        {/* Seletor de Data (HOJE / AMANHÃ) e Horario */}
         <div className="date-time-grid">
           <div className="input-box">
             <svg
@@ -186,7 +224,10 @@ export default function DeepDivePage({
               aria-label="Selecionar data de previsao"
               className="full-select"
               value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
+              onChange={(e) => {
+                setShowResult(false);
+                setSelectedDate(e.target.value);
+              }}
             >
               {DATE_OPTIONS.map((d) => (
                 <option key={d.id} value={d.id}>
@@ -201,13 +242,16 @@ export default function DeepDivePage({
               aria-label="Selecionar horario de previsao"
               className="full-select"
               value={selectedHour}
-              onChange={(e) => setSelectedHour(Number(e.target.value))}
+              onChange={(e) => {
+                setShowResult(false);
+                setSelectedHour(Number(e.target.value));
+              }}
             >
               {hoursList.map((h) => {
                 const label = `${String(h).padStart(2, '0')}:00`;
                 return (
                   <option key={h} value={h}>
-                    {h === currentHour ? `${label} (Agora)` : label}
+                    {selectedDate === 'today' && h === currentHour ? `${label} (Agora)` : label}
                   </option>
                 );
               })}
@@ -215,16 +259,19 @@ export default function DeepDivePage({
           </div>
         </div>
 
-        {/* Botoes de Atividade em 2 colunas para acomodar Fonte Grande sem sair da caixa */}
+        {/* Botoes de Atividade em ordem alfabetica */}
         <div className="activity-pills-grid">
-          {ACTIVITIES.map((act) => {
+          {SORTED_ACTIVITIES.map((act) => {
             const isActive = act.id === selectedActivity;
             return (
               <button
                 key={act.id}
                 type="button"
                 className={`activity-pill-btn ${isActive ? 'active' : ''}`}
-                onClick={() => setSelectedActivity(act.id)}
+                onClick={() => {
+                  setShowResult(false);
+                  setSelectedActivity(act.id);
+                }}
               >
                 <ActivityIcon id={act.id} />
                 <span>{act.shortLabel.toUpperCase()}</span>
@@ -232,68 +279,88 @@ export default function DeepDivePage({
             );
           })}
         </div>
+
+        <button
+          type="button"
+          className="mark-event-btn"
+          onClick={handleGenerateForecast}
+          disabled={isGenerating}
+        >
+          {isGenerating ? 'Calculando previsão...' : 'Gerar previsão'}
+        </button>
       </section>
 
-      {/* Bloco 2: Modelo de Conexao Detalhado (Prototipo 3 + RF003) */}
-      <section className="block-section">
-        <h2 className="block-title">MODELO DE CONEXAO DETALHADO</h2>
+      {/* Carregamento fluido */}
+      {isGenerating && (
+        <section className="forecast-loading-box">
+          <div className="fluid-spinner" />
+          <span className="placeholder-text">Analisando qualidade da conexão...</span>
+        </section>
+      )}
 
-        <div className="detail-model-card">
-          <div className="detail-top-row">
-            <div className="detail-location-col">
-              <div className="detail-city">{probeInfo.displayName}</div>
-              <div className="detail-sub">
-                {activityDef.label} as {forecast.hourLabel} ·{' '}
-                <strong className={suitable ? 'text-good' : 'text-unstable'}>
-                  {suitable ? 'Recomendado' : 'Nao recomendado'}
-                </strong>
+      {/* Bloco 2: Exibido apenas apos clicar em Gerar previsao */}
+      {showResult && !isGenerating && (
+        <section className="block-section">
+          <h2 className="block-title">MODELO DE CONEXAO DETALHADO</h2>
+
+          <div className="detail-model-card">
+            <div className="detail-top-row">
+              <div className="detail-location-col">
+                <div className="detail-city">{probeInfo.displayName}</div>
+                <div className="detail-sub">
+                  {activityDef.label} · {selectedDate === 'today' ? 'HOJE' : 'AMANHÃ'} as{' '}
+                  {forecast.hourLabel} ·{' '}
+                  <strong className={suitable ? 'text-good' : 'text-unstable'}>
+                    {suitable ? 'Recomendado' : 'Nao recomendado'}
+                  </strong>
+                </div>
+              </div>
+
+              <div className="detail-score-col">
+                <span className={`detail-score-num text-${qualityClass}`}>
+                  {forecast.qualityScore}
+                </span>
+                <span className={`detail-score-label text-${qualityClass}`}>
+                  {QUALITY_SHORT_LABELS[forecast.quality]}
+                </span>
               </div>
             </div>
 
-            <div className="detail-score-col">
-              <span className={`detail-score-num text-${qualityClass}`}>
-                {forecast.qualityScore}
-              </span>
-              <span className={`detail-score-label text-${qualityClass}`}>
-                {QUALITY_SHORT_LABELS[forecast.quality]}
-              </span>
+            <div className="detail-divider" />
+
+            <div className="detail-metrics-3">
+              <div className="detail-metric-item">
+                <span className="detail-metric-label">PERDA PREVISIVEL</span>
+                <span className={`detail-metric-val text-${qualityClass}`}>
+                  {forecast.predictedPacketLossPct.toFixed(2).replace('.', ',')} %
+                </span>
+              </div>
+
+              <div className="detail-metric-item">
+                <span className="detail-metric-label">PING PREVISTO</span>
+                <span className="detail-metric-val">
+                  {forecast.predictedAvgRttMs.toFixed(1).replace('.', ',')} ms
+                </span>
+              </div>
+
+              <div className="detail-metric-item">
+                <span className="detail-metric-label">ESTABILIDADE</span>
+                <span className="detail-metric-val text-primary">
+                  {stabilityPct.toFixed(1).replace('.', ',')}%
+                </span>
+              </div>
+            </div>
+
+            <div
+              className={`event-preview-box ${
+                suitable ? 'preview-ok' : 'preview-warn'
+              }`}
+            >
+              <p className="event-preview-msg">{recommendation.message}</p>
             </div>
           </div>
-
-          <div className="detail-divider" />
-
-          <div className="detail-metrics-3">
-            <div className="detail-metric-item">
-              <span className="detail-metric-label">PERDA PREVISIVEL</span>
-              <span className={`detail-metric-val text-${qualityClass}`}>
-                {forecast.predictedPacketLossPct.toFixed(2).replace('.', ',')} %
-              </span>
-            </div>
-
-            <div className="detail-metric-item">
-              <span className="detail-metric-label">PING PREVISTO</span>
-              <span className="detail-metric-val">
-                {forecast.predictedAvgRttMs.toFixed(1).replace('.', ',')} ms
-              </span>
-            </div>
-
-            <div className="detail-metric-item">
-              <span className="detail-metric-label">ESTABILIDADE</span>
-              <span className="detail-metric-val text-primary">
-                {stabilityPct.toFixed(1).replace('.', ',')}%
-              </span>
-            </div>
-          </div>
-
-          <div
-            className={`event-preview-box ${
-              suitable ? 'preview-ok' : 'preview-warn'
-            }`}
-          >
-            <p className="event-preview-msg">{recommendation.message}</p>
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
     </div>
   );
 }

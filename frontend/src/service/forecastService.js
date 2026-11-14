@@ -66,33 +66,33 @@ export const forecastService = {
       let rtt = rec.predictedAvgRttMs;
       let loss = rec.predictedPacketLossPct;
 
-      if (live && typeof live.avgRttMs === 'number') {
-        const slotDelta = HOURLY_DELTAS[idx] || refDelta;
+      // No horario atual (Agora), reflete a leitura ao vivo mais recente do RIPE Atlas quando disponivel
+      if (idx === safeRefHour && live && typeof live.avgRttMs === 'number') {
+        rtt = Math.max(1.0, Number((live.avgRttMs + modelOffset.rttAdd).toFixed(1)));
+        loss = Math.max(
+          0.0,
+          Number(((live.packetLossPct || 0) + modelOffset.lossAdd).toFixed(2))
+        );
+      } else if (!rec.hasRealPrediction && live && typeof live.avgRttMs === 'number') {
+        const slotDelta = HOURLY_DELTAS[idx % 24] || refDelta;
         const factor = refDelta.rttFactor > 0 ? slotDelta.rttFactor / refDelta.rttFactor : 1.0;
         const lossDiff = slotDelta.lossDelta - refDelta.lossDelta;
-
-        if (idx === safeRefHour) {
-          rtt = Math.max(1.0, Number((live.avgRttMs + modelOffset.rttAdd).toFixed(1)));
-          loss = Math.max(
-            0.0,
-            Number(((live.packetLossPct || 0) + modelOffset.lossAdd).toFixed(2))
-          );
-        } else {
-          rtt = Math.max(
-            1.0,
-            Number((live.avgRttMs * factor + modelOffset.rttAdd).toFixed(1))
-          );
-          loss = Math.max(
-            0.0,
-            Number(((live.packetLossPct || 0) + lossDiff + modelOffset.lossAdd).toFixed(2))
-          );
-        }
+        rtt = Math.max(
+          1.0,
+          Number((live.avgRttMs * factor + modelOffset.rttAdd).toFixed(1))
+        );
+        loss = Math.max(
+          0.0,
+          Number(((live.packetLossPct || 0) + lossDiff + modelOffset.lossAdd).toFixed(2))
+        );
       }
 
       const assessment = qualityClassifier.assess(rtt, loss);
       return {
         predictionFor: rec.predictionFor,
         hourLabel: rec.hourLabel,
+        dayIndex: rec.dayIndex ?? Math.floor(idx / 24),
+        stepIndex: idx,
         predictedAvgRttMs: rtt,
         predictedPacketLossPct: loss,
         quality: assessment.quality,
@@ -143,16 +143,18 @@ export const forecastService = {
     };
     const recommendation = recommendationService.forQuality(assessment.quality);
 
-    const activitiesStatus = ACTIVITIES.map((act) => {
-      const result = recommendationService.forActivity(act.id, assessment.quality);
-      return {
-        id: act.id,
-        label: act.label,
-        shortLabel: act.shortLabel,
-        suitable: result.suitable,
-        recommendation: result.recommendation
-      };
-    });
+    const activitiesStatus = [...ACTIVITIES]
+      .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'))
+      .map((act) => {
+        const result = recommendationService.forActivity(act.id, assessment.quality);
+        return {
+          id: act.id,
+          label: act.label,
+          shortLabel: act.shortLabel,
+          suitable: result.suitable,
+          recommendation: result.recommendation
+        };
+      });
 
     return {
       ...createNearbyForecastResponse({
@@ -239,12 +241,15 @@ export const forecastService = {
         assessment,
         recommendation
       };
-    });
+    }).sort((a, b) =>
+      `${a.uf} - ${a.city}`.localeCompare(`${b.uf} - ${b.city}`, 'pt-BR')
+    );
   },
 
   checkActivity({
     probeId,
     hour = 14,
+    dayOffset = 0,
     activity = 'VIDEO_CALL',
     preferredModelId = 'model-a',
     simulatedInactiveIds = [],
@@ -259,7 +264,12 @@ export const forecastService = {
       simulatedInactiveIds,
       referenceHour
     );
-    const targetRecord = timeline.items[hour] || timeline.items[0];
+    const slotIdx = Math.min(
+      Math.max(0, Number(dayOffset) + Number(hour)),
+      Math.max(0, timeline.items.length - 1)
+    );
+    const targetRecord =
+      timeline.items[slotIdx] || timeline.items[hour] || timeline.items[0];
 
     const assessment = {
       quality: targetRecord.quality,
@@ -278,6 +288,7 @@ export const forecastService = {
       forecast: {
         predictionFor: targetRecord.predictionFor,
         hourLabel: targetRecord.hourLabel,
+        dayIndex: targetRecord.dayIndex ?? (dayOffset >= 24 ? 1 : 0),
         quality: assessment.quality,
         qualityScore: assessment.qualityScore,
         predictedAvgRttMs: targetRecord.predictedAvgRttMs,

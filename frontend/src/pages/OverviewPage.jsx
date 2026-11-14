@@ -1,19 +1,59 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { QUALITY_SHORT_LABELS } from '../config/qualityRules';
+
+function haversineKm(lat1, lon1, lat2, lon2) {
+  const R = 6371.0;
+  const toRad = (deg) => (deg * Math.PI) / 180.0;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
 
 export default function OverviewPage({
   nearbyForecast,
   allProbes,
+  anchorCoords,
   selectedProbeId,
   onSelectProbe,
   onOpenSettings,
+  onOpenHelp,
   clockDisplay,
   isLiveActive,
   isLiveSyncing,
   onRefreshLive
 }) {
+  const [showAllRegions, setShowAllRegions] = useState(false);
   const { probeInfo, prediction, assessment, activitiesStatus } = nearbyForecast;
   const qualityClass = assessment.quality.toLowerCase();
+
+  // Mantem as 3 areas mais proximas da regiao reconhecida (ou todas se expandir),
+  // sem remover nem alterar o tamanho da lista ao clicar em um item,
+  // e ordenadas por qualidade de conexao da mais baixa para a mais alta.
+  const displayedRegions = useMemo(() => {
+    const refLat = anchorCoords?.latitude ?? -23.652;
+    const refLon = anchorCoords?.longitude ?? -46.732;
+
+    const withDist = allProbes.map((item) => ({
+      ...item,
+      distanceKm: haversineKm(refLat, refLon, item.location.latitude, item.location.longitude)
+    }));
+
+    const baseList = showAllRegions
+      ? withDist
+      : [...withDist]
+          .sort((a, b) => a.distanceKm - b.distanceKm)
+          .filter((item) => item.distanceKm > 0.01)
+          .slice(0, 3);
+
+    return [...baseList].sort(
+      (a, b) =>
+        a.assessment.qualityScore - b.assessment.qualityScore ||
+        b.prediction.predictedAvgRttMs - a.prediction.predictedAvgRttMs
+    );
+  }, [allProbes, anchorCoords, showAllRegions]);
 
   return (
     <div className="screen-content">
@@ -30,6 +70,15 @@ export default function OverviewPage({
           >
             {isLiveActive && <span className="live-dot" />}
             <span>{isLiveSyncing ? 'Atualizando...' : `Agora · ${clockDisplay}`}</span>
+          </button>
+          <button
+            type="button"
+            className="icon-btn"
+            aria-label="O que significam Ping e Perca de Pacotes"
+            title="Entenda o que significam Ping e Perca de Pacotes"
+            onClick={onOpenHelp}
+          >
+            <span className="help-q-mark">?</span>
           </button>
           <button
             type="button"
@@ -53,7 +102,7 @@ export default function OverviewPage({
         </div>
       </header>
 
-      {/* Localizacao Atual */}
+      {/* Apenas a Area Reconhecida / Selecionada */}
       <section className="region-row">
         <div className="region-title-group">
           <svg
@@ -68,19 +117,6 @@ export default function OverviewPage({
           </svg>
           <h1 className="region-title">{probeInfo.displayName}</h1>
         </div>
-
-        <select
-          aria-label="Selecionar estado"
-          className="region-select"
-          value={selectedProbeId}
-          onChange={(e) => onSelectProbe(Number(e.target.value))}
-        >
-          {allProbes.map((p) => (
-            <option key={p.probeId} value={p.probeId}>
-              {p.uf} - {p.city}
-            </option>
-          ))}
-        </select>
       </section>
 
       {/* Card Principal: Qualidade (0 a 100), Ping e Perda */}
@@ -127,11 +163,23 @@ export default function OverviewPage({
         </div>
       </section>
 
-      {/* Conexoes por Estado */}
+      {/* 3 Areas Mais Proximas (ou Todas as Regioes), lista fixa sem mudar de tamanho ao clicar */}
       <section className="block-section">
-        <h2 className="block-title">OUTRAS REGIOES</h2>
+        <div className="gauge-header-row" style={{ marginBottom: '8px' }}>
+          <h2 className="block-title" style={{ marginBottom: 0 }}>
+            {showAllRegions ? 'TODAS AS REGIOES' : 'AREAS PROXIMAS'}
+          </h2>
+          <button
+            type="button"
+            className="reset-now-btn"
+            onClick={() => setShowAllRegions((prev) => !prev)}
+          >
+            {showAllRegions ? 'Ver apenas proximas' : 'Ver todas regioes'}
+          </button>
+        </div>
+
         <div className="suggested-list">
-          {allProbes.map((item) => {
+          {displayedRegions.map((item) => {
             const itemQualityClass = item.assessment.quality.toLowerCase();
             const isCurrent = item.probeId === selectedProbeId;
             return (
@@ -155,7 +203,11 @@ export default function OverviewPage({
                   <span className="suggested-rtt">
                     {item.prediction.predictedAvgRttMs.toFixed(1)} ms
                   </span>
-                  <span className="suggested-meta">
+                  <span
+                    className="suggested-meta"
+                    title="% perca de pacotes"
+                    data-tooltip="% perca de pacotes"
+                  >
                     {item.prediction.predictedPacketLossPct.toFixed(2).replace('.', ',')}%
                   </span>
                 </div>

@@ -71,7 +71,7 @@ public class RipeAtlasLiveService {
             @Value("${api.ripe-atlas.default-measurement-id:1001}") int defaultMeasurementId,
             @Value("${api.ripe-atlas.live-sync.enabled:true}") boolean liveSyncEnabled,
             @Value("${api.ripe-atlas.sync-rate-ms:600000}") long syncRateMs,
-            @Value("${api.ripe-atlas.monitored-probes:6410,6891,6349,7019,7242,7307,6602,6790,7113,7508}") String monitoredProbesStr) {
+            @Value("${api.ripe-atlas.monitored-probes:6349,6410,6602,6659,6790,6891,6977,7019,7113,7242,7307,7508,7708,7848,11315}") String monitoredProbesStr) {
         this.classifier = classifier;
         this.recommendationService = recommendationService;
         this.objectMapper = objectMapper;

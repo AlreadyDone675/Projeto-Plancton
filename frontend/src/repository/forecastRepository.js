@@ -1,9 +1,8 @@
 import { apiClient } from '../service/apiClient';
 import { qualityClassifier } from '../service/qualityClassifier';
-import { recommendationService } from '../service/recommendationService';
 import { MOCK_MODELS, MOCK_PROBES, generatePredictionsForProbe } from './mockData';
 
-// Cache em memoria para dados carregados do backend Spring Boot ou CSV fallback
+// Cache em memoria para dados carregados do backend Spring Boot ou CSV fallback (48h / 2 dias)
 let activeProbes = [...MOCK_PROBES];
 const timelineCache = new Map(); // chave: `${modelId}-${probeId}`
 const liveTelemetryMap = new Map(); // chave: probeId -> LiveTelemetryResponse
@@ -18,59 +17,17 @@ function enrichBackendProbe(item) {
     probeId: Number(item.probeId),
     atlasProbeId: meta?.atlasProbeId || Number(item.probeId),
     uf: meta?.uf || 'BR',
-    city: meta?.city || `Regiao ${item.probeId}`,
-    displayName: meta?.displayName || `Regiao ${item.probeId}`,
+    city: meta?.city || `Probe ${item.probeId}`,
+    displayName: meta?.displayName || `Probe ${item.probeId}, BR`,
     countryCode: item.countryCode || 'BR',
     asnV4: item.asnV4 ?? meta?.asnV4 ?? null,
     asnV6: item.asnV6 ?? meta?.asnV6 ?? null,
-    latitude: item.location?.latitude ?? item.latitude ?? meta?.latitude ?? -23.5505,
-    longitude: item.location?.longitude ?? item.longitude ?? meta?.longitude ?? -46.6333,
+    latitude: item.location?.latitude ?? item.latitude ?? meta?.latitude ?? -23.652,
+    longitude: item.location?.longitude ?? item.longitude ?? meta?.longitude ?? -46.732,
     baseRttMs: meta?.baseRttMs ?? 35.0,
     baseLossPct: meta?.baseLossPct ?? 0.0,
     jitterMs: meta?.jitterMs ?? 1.0,
-    isRealAtlas: Boolean(meta?.isRealAtlas)
-  };
-}
-
-function adaptLiveForProbe(rawLive, targetProbeId) {
-  if (!rawLive) return null;
-  const numericId = Number(targetProbeId);
-  const meta = PROBE_METADATA_MAP.get(numericId);
-  if (!meta || meta.isRealAtlas || numericId === Number(rawLive.probeId)) {
-    return {
-      ...rawLive,
-      probeId: numericId
-    };
-  }
-
-  // Para as regioes de referencia (900001..900010), aplica a variacao real medida na ancora RIPE Atlas
-  // mantendo o perfil base de cada capital para consistencia entre todas as telas
-  const atlasMeta = PROBE_METADATA_MAP.get(meta.atlasProbeId);
-  const expectedAtlasRtt = atlasMeta?.baseRttMs > 1 ? atlasMeta.baseRttMs : 35.0;
-  const rawRatio = rawLive.avgRttMs > 0 ? rawLive.avgRttMs / expectedAtlasRtt : 1.0;
-  const clampedRatio = Math.min(1.25, Math.max(0.8, rawRatio));
-
-  const avgRttMs = Math.max(1.0, Number((meta.baseRttMs * clampedRatio).toFixed(1)));
-  const minRttMs = Math.max(0.5, Number((avgRttMs * 0.92).toFixed(1)));
-  const maxRttMs = Math.max(avgRttMs, Number((avgRttMs * 1.12).toFixed(1)));
-  const packetLossPct = Number(
-    Math.min(100.0, Math.max(0.0, meta.baseLossPct + (rawLive.packetLossPct || 0) * 0.25)).toFixed(2)
-  );
-
-  const assessment = qualityClassifier.assess(avgRttMs, packetLossPct);
-  const rec = recommendationService.forQuality(assessment.quality);
-
-  return {
-    ...rawLive,
-    probeId: numericId,
-    avgRttMs,
-    minRttMs,
-    maxRttMs,
-    packetLossPct,
-    quality: assessment.quality,
-    qualityScore: assessment.qualityScore,
-    recommendation: rec.code,
-    recommendationMessage: rec.message
+    isRealAtlas: true
   };
 }
 
@@ -82,7 +39,10 @@ export const forecastRepository = {
   setLiveTelemetry(probeId, item) {
     if (!item) return;
     const numericId = Number(probeId);
-    liveTelemetryMap.set(numericId, adaptLiveForProbe(item, numericId));
+    liveTelemetryMap.set(numericId, {
+      ...item,
+      probeId: numericId
+    });
   },
 
   setLiveTelemetryList(list) {
@@ -90,31 +50,17 @@ export const forecastRepository = {
     list.forEach((item) => {
       if (item?.probeId) {
         const rawId = Number(item.probeId);
-        liveTelemetryMap.set(rawId, adaptLiveForProbe(item, rawId));
+        liveTelemetryMap.set(rawId, {
+          ...item,
+          probeId: rawId
+        });
       }
     });
-
-    // Propaga tambem para as probes regionais associadas as ancoras RIPE Atlas
-    for (const probe of MOCK_PROBES) {
-      if (probe.atlasProbeId && liveTelemetryMap.has(probe.atlasProbeId)) {
-        const anchorLive = liveTelemetryMap.get(probe.atlasProbeId);
-        liveTelemetryMap.set(probe.probeId, adaptLiveForProbe(anchorLive, probe.probeId));
-      }
-    }
   },
 
   getLiveTelemetry(probeId) {
     const numericId = Number(probeId);
-    if (liveTelemetryMap.has(numericId)) {
-      return liveTelemetryMap.get(numericId);
-    }
-    const meta = PROBE_METADATA_MAP.get(numericId);
-    if (meta?.atlasProbeId && liveTelemetryMap.has(meta.atlasProbeId)) {
-      const adapted = adaptLiveForProbe(liveTelemetryMap.get(meta.atlasProbeId), numericId);
-      liveTelemetryMap.set(numericId, adapted);
-      return adapted;
-    }
-    return null;
+    return liveTelemetryMap.get(numericId) || null;
   },
 
   findAllModels() {
@@ -144,8 +90,11 @@ export const forecastRepository = {
     return generatePredictionsForProbe(probe.probeId, modelId);
   },
 
-  // Sincronizacao com o backend ou Fallback via predictions.csv + API RIPE Atlas ao vivo
+  // Sincronizacao com o backend Spring Boot + pre-carregamento das 2.880 previsoes reais (48h)
   async syncWithBackend() {
+    // Carrega o cache inicial de 48h para todas as 15 probes e 4 modelos
+    await this.loadFromCsvFallback();
+
     let backendSuccess = false;
     try {
       const locationsData = await apiClient.getLocations();
@@ -156,7 +105,6 @@ export const forecastRepository = {
       }
     } catch {
       isBackendOnline = false;
-      await this.loadFromCsvFallback();
     }
 
     try {
@@ -175,7 +123,7 @@ export const forecastRepository = {
     };
   },
 
-  // Fallback que le e processa predictions.csv quando o backend esta offline
+  // Le e processa predictions.csv (2.880 linhas reais: 15 probes x 48h x 4 modelos)
   async loadFromCsvFallback() {
     try {
       const res = await fetch('/predictions.csv');
@@ -212,6 +160,10 @@ export const forecastRepository = {
 
         const assessment = qualityClassifier.assess(rtt, loss);
 
+        if (!timelinesByGroup.has(key)) timelinesByGroup.set(key, []);
+        const groupList = timelinesByGroup.get(key);
+        const stepIdx = groupList.length;
+
         const item = {
           predictionId: row[0],
           modelId,
@@ -219,15 +171,17 @@ export const forecastRepository = {
           probeId,
           predictionFor,
           hourLabel: `${hourStr}:00`,
+          dayIndex: Math.floor(stepIdx / 24),
+          stepIndex: stepIdx,
           predictedAvgRttMs: rtt,
           predictedPacketLossPct: loss,
           quality: assessment.quality,
           qualityScore: assessment.qualityScore,
-          modelConfidence: parseFloat(row[idxConf]) || 0.85
+          modelConfidence: parseFloat(row[idxConf]) || 0.85,
+          hasRealPrediction: true
         };
 
-        if (!timelinesByGroup.has(key)) timelinesByGroup.set(key, []);
-        timelinesByGroup.get(key).push(item);
+        groupList.push(item);
 
         if (!probesMap.has(probeId)) {
           const lat = parseFloat(row[idxLat]) || 0;
@@ -247,17 +201,7 @@ export const forecastRepository = {
         activeProbes = Array.from(probesMap.values());
       }
       for (const [k, v] of timelinesByGroup.entries()) {
-        // Para as probes de referencia (900001..900010), usa a curva padronizada da regiao
-        // para evitar discrepancias de qualidade entre telas
-        const [, probeIdPart] = k.split('-').slice(-2);
-        const parsedProbeId = Number(k.substring(k.lastIndexOf('-') + 1));
-        const meta = PROBE_METADATA_MAP.get(parsedProbeId);
-        if (meta && !meta.isRealAtlas) {
-          const modelIdPart = k.substring(0, k.lastIndexOf('-'));
-          timelineCache.set(k, generatePredictionsForProbe(parsedProbeId, modelIdPart));
-        } else {
-          timelineCache.set(k, v);
-        }
+        timelineCache.set(k, v);
       }
       return true;
     } catch {
@@ -269,29 +213,29 @@ export const forecastRepository = {
     const numericId = Number(probeId);
     const key = `${modelId}-${numericId}`;
     try {
-      const res = await apiClient.getProbeTimeline(numericId, modelId, 24);
+      const res = await apiClient.getProbeTimeline(numericId, modelId, 48);
       if (res?.items && Array.isArray(res.items)) {
-        const meta = PROBE_METADATA_MAP.get(numericId);
-        if (meta && !meta.isRealAtlas) {
-          const generated = generatePredictionsForProbe(numericId, modelId);
-          timelineCache.set(key, generated);
-          isBackendOnline = true;
-          return generated;
-        }
         const formatted = res.items.map((item, idx) => {
-          const hourStr = String(idx).padStart(2, '0');
+          const predictionFor = item.predictionFor || '';
+          const hourStr =
+            predictionFor.length >= 13
+              ? predictionFor.substring(11, 13)
+              : String(idx % 24).padStart(2, '0');
           return {
-            predictionId: `api-${modelId}-${numericId}-${hourStr}`,
+            predictionId: `api-${modelId}-${numericId}-${String(idx).padStart(2, '0')}`,
             modelId,
             modelVersion: res.model?.version || '1.0',
             probeId: numericId,
-            predictionFor: item.predictionFor,
+            predictionFor,
             hourLabel: `${hourStr}:00`,
+            dayIndex: Math.floor(idx / 24),
+            stepIndex: idx,
             predictedAvgRttMs: item.predictedAvgRttMs,
             predictedPacketLossPct: item.predictedPacketLossPct,
             quality: item.quality,
             qualityScore: item.qualityScore,
-            modelConfidence: 0.88
+            modelConfidence: 0.88,
+            hasRealPrediction: true
           };
         });
         timelineCache.set(key, formatted);

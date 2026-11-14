@@ -20,10 +20,11 @@ function getSystemTimeState() {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('overview');
-  // Padrao Sao Paulo (900001) caso a geolocalizacao nao seja aceita
-  const [selectedProbeId, setSelectedProbeId] = useState(900001);
+  // Padrao Sao Paulo - Zona Sul (Probe RIPE Atlas 6410) caso a geolocalizacao nao seja aceita
+  const [selectedProbeId, setSelectedProbeId] = useState(6410);
   const [userCoords, setUserCoords] = useState(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [theme, setTheme] = useState('light');
   const [fontSize, setFontSize] = useState('normal');
   const [highContrast, setHighContrast] = useState(false);
@@ -81,6 +82,18 @@ export default function App() {
       forecastRepository.findAllProbes()[0],
     [selectedProbeId, dataVersion]
   );
+
+  // Coordenada fixa de referencia (geolocalizacao reconhecida ou Sao Paulo 6410)
+  // para que a lista das 3 areas mais proximas nao mude ao clicar em um card
+  const anchorCoords = useMemo(() => {
+    if (userCoords) return userCoords;
+    const defaultProbe =
+      forecastRepository.findProbeById(6410) || forecastRepository.findAllProbes()[0];
+    return {
+      latitude: defaultProbe.latitude,
+      longitude: defaultProbe.longitude
+    };
+  }, [userCoords, dataVersion]);
 
   const nearbyForecast = useMemo(() => {
     const lat = userCoords ? userCoords.latitude : selectedProbe.latitude;
@@ -160,9 +173,11 @@ export default function App() {
             <OverviewPage
               nearbyForecast={nearbyForecast}
               allProbes={allProbes}
+              anchorCoords={anchorCoords}
               selectedProbeId={activeProbeId}
               onSelectProbe={handleSelectProbe}
               onOpenSettings={() => setSettingsOpen(true)}
+              onOpenHelp={() => setHelpOpen(true)}
               clockDisplay={clockDisplay}
               isLiveActive={isLiveActive}
               isLiveSyncing={isLiveSyncing}
@@ -174,10 +189,10 @@ export default function App() {
             <ForecastPage
               nearbyForecast={nearbyForecast}
               timelineData={timelineData}
-              allProbes={allProbes}
               selectedProbeId={activeProbeId}
-              onSelectProbe={handleSelectProbe}
               onOpenSettings={() => setSettingsOpen(true)}
+              onOpenHelp={() => setHelpOpen(true)}
+              onGoToAnalysis={() => setActiveTab('deepdive')}
               currentHour={currentHour}
               clockDisplay={clockDisplay}
               isLiveActive={isLiveActive}
@@ -192,6 +207,7 @@ export default function App() {
               selectedProbeId={activeProbeId}
               onSelectProbe={handleSelectProbe}
               onOpenSettings={() => setSettingsOpen(true)}
+              onOpenHelp={() => setHelpOpen(true)}
               currentHour={currentHour}
               clockDisplay={clockDisplay}
               dataVersion={dataVersion}
@@ -208,6 +224,7 @@ export default function App() {
               selectedProbeId={activeProbeId}
               onSelectProbe={handleSelectProbe}
               onOpenSettings={() => setSettingsOpen(true)}
+              onOpenHelp={() => setHelpOpen(true)}
               clockDisplay={clockDisplay}
               isLiveActive={isLiveActive}
               isLiveSyncing={isLiveSyncing}
@@ -215,6 +232,46 @@ export default function App() {
             />
           )}
         </main>
+
+        {helpOpen && (
+          <div className="modal-backdrop" onClick={() => setHelpOpen(false)}>
+            <div
+              className="settings-sheet"
+              role="dialog"
+              aria-label="Ajuda sobre metricas"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="settings-header">
+                <h2 className="settings-title">Entenda as Métricas</h2>
+                <button
+                  type="button"
+                  className="close-btn"
+                  onClick={() => setHelpOpen(false)}
+                >
+                  Fechar
+                </button>
+              </div>
+
+              <div className="settings-group">
+                <span className="settings-label">Ping (Latência em ms)</span>
+                <p className="placeholder-text">
+                  É o tempo (em milissegundos) que um pacote de dados leva para ir do seu
+                  ponto de rede até o servidor e voltar. Quanto menor o Ping, mais rápida
+                  e imediata é a resposta em chamadas de vídeo e jogos.
+                </p>
+              </div>
+
+              <div className="settings-group">
+                <span className="settings-label">Perca de Pacotes (%)</span>
+                <p className="placeholder-text">
+                  Indica a porcentagem de pacotes de dados que se perderam no caminho e
+                  não chegaram ao destino. Mesmo valores pequenos (acima de 2%) podem
+                  causar travamentos na voz, cortes no vídeo e lentidão no carregamento.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         <SettingsModal
           isOpen={settingsOpen}

@@ -10,20 +10,9 @@ import { recommendationService } from './recommendationService';
 const API_BASE = '/api/v1';
 const RIPE_ATLAS_BASE = 'https://atlas.ripe.net/api/v2';
 const DEFAULT_MEASUREMENT_ID = 1001;
-const MONITORED_ATLAS_PROBES = [6410, 6891, 6349, 7019, 7242, 7307, 6602, 6790, 7113, 7508];
-
-const MOCK_TO_ATLAS_MAP = {
-  900001: 6410,
-  900002: 6602,
-  900003: 6891,
-  900004: 6790,
-  900005: 7307,
-  900006: 7508,
-  900007: 7242,
-  900008: 7019,
-  900009: 6349,
-  900010: 7113
-};
+const MONITORED_ATLAS_PROBES = [
+  6349, 6410, 6602, 6659, 6790, 6891, 6977, 7019, 7113, 7242, 7307, 7508, 7708, 7848, 11315
+];
 
 let directAtlasCache = new Map();
 let lastDirectSyncAt = null;
@@ -142,7 +131,7 @@ export const apiClient = {
     return request(`/forecasts/probes/${probeId}?model_id=${encodeURIComponent(modelId)}`);
   },
 
-  async getProbeTimeline(probeId, modelId = 'model-a', limit = 24) {
+  async getProbeTimeline(probeId, modelId = 'model-a', limit = 48) {
     return request(
       `/forecasts/probes/${probeId}/timeline?model_id=${encodeURIComponent(modelId)}&limit=${limit}`
     );
@@ -177,7 +166,7 @@ export const apiClient = {
     try {
       return await request(`/live/probes/${probeId}`);
     } catch {
-      const targetAtlasId = MOCK_TO_ATLAS_MAP[Number(probeId)] || Number(probeId);
+      const targetAtlasId = Number(probeId);
       if (!directAtlasCache.has(targetAtlasId)) {
         await fetchDirectFromRipeAtlas(MONITORED_ATLAS_PROBES);
       }
