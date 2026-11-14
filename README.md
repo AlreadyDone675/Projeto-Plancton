@@ -11,8 +11,8 @@ O ecossistema é composto por:
 
 ## 📋 Pré-requisitos
 
-* **Java:** JDK 17+
-* **Maven:** 3.9+
+* **Java:** JDK 17+ (recomendado JDK 17 ou 21 para Spring Boot 3)
+* **Maven:** 3.9+ *(Necessário para comandos no terminal como `mvn spring-boot:run`; caso não tenha, veja como instalar abaixo ou utilize o VS Code)*
 * **Node.js:** 18+ (com npm)
 * **Python:** 3.9+ (com pip)
 
@@ -74,12 +74,29 @@ A API subirá em `http://localhost:8080`.
 ---
 
 #### 🛠️ Resolução de Problemas Comuns no Backend
-* **`Unable to access jarfile target/...jar`**: Significa que o arquivo `.jar` ainda não foi gerado nesta máquina. Execute `mvn clean package -DskipTests` primeiro (ou utilize a **Opção A**).
-* **Erro de segurança no PowerShell (`PSSecurityException` / scripts desabilitados)**: Ocorre quando o PowerShell tenta rodar scripts de extensão (`debugjava.ps1`). Para rodar normalmente use `java -jar ...` (e não `debugjava`), ou libere a execução de scripts para seu usuário executando uma única vez:
+* **`Unable to access jarfile target/...jar`**: Significa que o arquivo `.jar` ainda não foi gerado nesta máquina. Execute `mvn clean package -DskipTests` primeiro (ou utilize a **Opção A** ou **Opção C**).
+* **Erro de segurança no PowerShell (`PSSecurityException` / scripts desabilitados)**: Ocorre quando o PowerShell tenta rodar scripts de extensão do VS Code (`debugjava.ps1`). Para rodar normalmente use `java -jar ...` (e não `debugjava`), ou libere a execução de scripts para seu usuário executando uma única vez no PowerShell:
   ```powershell
   Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
   ```
-* **Comando `mvn` não reconhecido**: Instale o [Apache Maven](https://maven.apache.org/) e adicione-o ao `PATH` do sistema, ou utilize a **Opção C** (botão Run do VS Code).
+* **Comando `mvn` não reconhecido (Maven não instalado ou fora do PATH)**:  
+  Se aparecer a mensagem *`O termo 'mvn' não é reconhecido como nome de cmdlet...`*, escolha uma das alternativas:
+  * **Opção 1 — Instalação rápida no Windows via terminal (Recomendado):**  
+    Abra o PowerShell ou Prompt de Comando e execute:
+    ```powershell
+    winget install Apache.Maven
+    ```
+    *Após a instalação, feche e abra o terminal/VS Code novamente para que o novo PATH seja reconhecido.*
+  * **Opção 2 — Instalação manual no Windows:**  
+    1. Baixe o arquivo binário `.zip` no site oficial do [Apache Maven](https://maven.apache.org/download.cgi).  
+    2. Extraia o conteúdo em uma pasta permanente (ex: `C:\Program Files\Apache\maven` ou `C:\tools\maven`).  
+    3. Abra as **Variáveis de Ambiente do Sistema** no Windows e adicione a subpasta `bin` (ex: `C:\tools\maven\bin`) na variável `Path`.  
+    4. Abra um novo terminal e confirme digitando `mvn -version`.
+  * **Opção 3 — Linux (Ubuntu/Debian) ou macOS:**  
+    * Ubuntu/Debian: `sudo apt update && sudo apt install maven -y`  
+    * macOS (Homebrew): `brew install maven`
+  * **Opção 4 — Rodar sem instalar o Maven (pelo VS Code):**  
+    Utilize a **Opção C**: basta ter a extensão **Extension Pack for Java** no VS Code, abrir `src/main/java/com/brazcubas/connectivityforecast/ConnectivityForecastApplication.java` e clicar em **`Run`**. O próprio VS Code gerencia a compilação e execução sem precisar do utilitário `mvn` de linha de comando.
 
 ### 2. Iniciar o Frontend Web (React / Vite)
 Em um novo terminal:
