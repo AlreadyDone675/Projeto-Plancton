@@ -63,14 +63,20 @@ npm run dev
 ```
 A aplicação estará disponível em `http://localhost:5173`. O Vite já possui proxy configurado para encaminhar requisições `/api` diretamente para a porta `8080`.
 
-### 3. Executar o Monitor ICMP (Python)
+### 3. Coletar Dados Históricos do RIPE Atlas (Python)
+Para coletar o histórico horário real (21 dias, 15 probes no Brasil) diretamente da API pública do RIPE Atlas e gerar o arquivo `measurements_history.csv`:
+```bash
+python src/ripeatlas.py
+```
+
+### 4. Executar o Monitor ICMP Local (Python)
 Em outro terminal (opcional para testes de monitoramento local de rede):
 ```bash
 python main.py
 ```
 O script executa ciclos de ping em hosts configurados, calcula RTT, Jitter e TTL, classifica a estabilidade do enlace e armazena os dados em `rede_monitoramento.db`.
 
-### 4. Build e Sincronização Mobile (Android / Capacitor)
+### 5. Build e Sincronização Mobile (Android / Capacitor)
 Para sincronizar as alterações da aplicação web com o projeto nativo Android:
 ```bash
 cd frontend

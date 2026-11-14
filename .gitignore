@@ -16,6 +16,9 @@ replay_pid*
 bin/
 
 # --- Node & Frontend ---
+.env
+.env.local
+.env.*.local
 node_modules/
 **/node_modules/
 dist/
@@ -84,3 +87,17 @@ Thumbs.db
 *.bak
 *.swp
 *~
+
+# --- Firebase & Agent Skills ---
+.firebase/
+.firebaserc
+firebase.json
+firestore.rules
+firestore.indexes.json
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
+frontend/.env.example
+frontend/src/config/firebase.js
+.agents/
+skills-lock.json
