@@ -1,5 +1,5 @@
 // Dados de referencia dos modelos e das 15 probes reais do RIPE Atlas no Brasil
-// baseados em measurements_history.csv, data/models.json e data/predictions.csv (horizonte de 48h / 2 dias)
+// sincronizados com as medicoes mais recentes como fallback imediato (48h / 2 dias)
 
 export const MOCK_MODELS = [
   {
@@ -56,6 +56,22 @@ export const MOCK_MODELS = [
 
 export const MOCK_PROBES = [
   {
+    probeId: 6790,
+    atlasProbeId: 6790,
+    uf: 'SP',
+    city: 'Sao Paulo (Vila Mariana)',
+    displayName: 'Sao Paulo (Vila Mariana), SP',
+    countryCode: 'BR',
+    asnV4: 57695,
+    asnV6: 57695,
+    latitude: -23.582,
+    longitude: -46.638,
+    baseRttMs: 34.8,
+    baseLossPct: 0.0,
+    jitterMs: 0.29,
+    isRealAtlas: true
+  },
+  {
     probeId: 6410,
     atlasProbeId: 6410,
     uf: 'SP',
@@ -66,8 +82,8 @@ export const MOCK_PROBES = [
     asnV6: 22548,
     latitude: -23.652,
     longitude: -46.732,
-    baseRttMs: 47.0,
-    baseLossPct: 0.04,
+    baseRttMs: 46.4,
+    baseLossPct: 0.0,
     jitterMs: 1.34,
     isRealAtlas: true
   },
@@ -82,8 +98,8 @@ export const MOCK_PROBES = [
     asnV6: 271354,
     latitude: -19.872,
     longitude: -43.958,
-    baseRttMs: 17.5,
-    baseLossPct: 0.07,
+    baseRttMs: 20.5,
+    baseLossPct: 0.0,
     jitterMs: 2.15,
     isRealAtlas: true
   },
@@ -98,8 +114,8 @@ export const MOCK_PROBES = [
     asnV6: 53046,
     latitude: -25.088,
     longitude: -50.102,
-    baseRttMs: 1.0,
-    baseLossPct: 0.05,
+    baseRttMs: 0.6,
+    baseLossPct: 0.0,
     jitterMs: 0.34,
     isRealAtlas: true
   },
@@ -114,8 +130,8 @@ export const MOCK_PROBES = [
     asnV6: 2716,
     latitude: -30.069,
     longitude: -51.12,
-    baseRttMs: 122.4,
-    baseLossPct: 0.03,
+    baseRttMs: 124.4,
+    baseLossPct: 0.0,
     jitterMs: 2.77,
     isRealAtlas: true
   },
@@ -130,8 +146,8 @@ export const MOCK_PROBES = [
     asnV6: 264479,
     latitude: -12.239,
     longitude: -38.972,
-    baseRttMs: 27.9,
-    baseLossPct: 0.1,
+    baseRttMs: 34.5,
+    baseLossPct: 0.0,
     jitterMs: 0.59,
     isRealAtlas: true
   },
@@ -146,7 +162,7 @@ export const MOCK_PROBES = [
     asnV6: 262792,
     latitude: -8.111,
     longitude: -34.919,
-    baseRttMs: 22.5,
+    baseRttMs: 22.2,
     baseLossPct: 0.0,
     jitterMs: 0.4,
     isRealAtlas: true
@@ -162,8 +178,8 @@ export const MOCK_PROBES = [
     asnV6: 37468,
     latitude: -3.741,
     longitude: -38.46,
-    baseRttMs: 70.5,
-    baseLossPct: 0.04,
+    baseRttMs: 66.0,
+    baseLossPct: 0.0,
     jitterMs: 0.37,
     isRealAtlas: true
   },
@@ -178,8 +194,8 @@ export const MOCK_PROBES = [
     asnV6: 52863,
     latitude: -23.502,
     longitude: -46.832,
-    baseRttMs: 203.0,
-    baseLossPct: 0.45,
+    baseRttMs: 201.9,
+    baseLossPct: 0.0,
     jitterMs: 1.91,
     isRealAtlas: true
   },
@@ -194,8 +210,8 @@ export const MOCK_PROBES = [
     asnV6: 36236,
     latitude: -23.471,
     longitude: -46.862,
-    baseRttMs: 31.2,
-    baseLossPct: 0.01,
+    baseRttMs: 33.0,
+    baseLossPct: 0.0,
     jitterMs: 0.32,
     isRealAtlas: true
   },
@@ -210,25 +226,9 @@ export const MOCK_PROBES = [
     asnV6: 199524,
     latitude: -23.489,
     longitude: -46.841,
-    baseRttMs: 33.8,
-    baseLossPct: 0.04,
+    baseRttMs: 43.8,
+    baseLossPct: 0.0,
     jitterMs: 0.57,
-    isRealAtlas: true
-  },
-  {
-    probeId: 6790,
-    atlasProbeId: 6790,
-    uf: 'SP',
-    city: 'Sao Paulo (Vila Mariana)',
-    displayName: 'Sao Paulo (Vila Mariana), SP',
-    countryCode: 'BR',
-    asnV4: 57695,
-    asnV6: 57695,
-    latitude: -23.582,
-    longitude: -46.638,
-    baseRttMs: 34.6,
-    baseLossPct: 0.02,
-    jitterMs: 0.29,
     isRealAtlas: true
   },
   {
@@ -242,8 +242,8 @@ export const MOCK_PROBES = [
     asnV6: 16552,
     latitude: -23.489,
     longitude: -46.808,
-    baseRttMs: 45.9,
-    baseLossPct: 0.02,
+    baseRttMs: 45.4,
+    baseLossPct: 0.0,
     jitterMs: 0.84,
     isRealAtlas: true
   },
@@ -258,8 +258,8 @@ export const MOCK_PROBES = [
     asnV6: 14907,
     latitude: -23.488,
     longitude: -46.782,
-    baseRttMs: 46.8,
-    baseLossPct: 0.02,
+    baseRttMs: 46.5,
+    baseLossPct: 0.0,
     jitterMs: 0.49,
     isRealAtlas: true
   },
@@ -274,8 +274,8 @@ export const MOCK_PROBES = [
     asnV6: 401612,
     latitude: -23.581,
     longitude: -46.639,
-    baseRttMs: 32.1,
-    baseLossPct: 0.01,
+    baseRttMs: 32.3,
+    baseLossPct: 0.0,
     jitterMs: 0.3,
     isRealAtlas: true
   },
@@ -290,39 +290,18 @@ export const MOCK_PROBES = [
     asnV6: 47583,
     latitude: -23.49,
     longitude: -46.781,
-    baseRttMs: 32.9,
+    baseRttMs: 32.8,
     baseLossPct: 0.0,
     jitterMs: 0.53,
     isRealAtlas: true
   }
 ];
 
-export const HOURLY_DELTAS = [
-  { hour: 0, rttFactor: 1.01, lossDelta: 0.01 },
-  { hour: 1, rttFactor: 1.0, lossDelta: 0.0 },
-  { hour: 2, rttFactor: 0.99, lossDelta: 0.0 },
-  { hour: 3, rttFactor: 0.98, lossDelta: 0.0 },
-  { hour: 4, rttFactor: 0.98, lossDelta: 0.0 },
-  { hour: 5, rttFactor: 0.99, lossDelta: 0.0 },
-  { hour: 6, rttFactor: 0.99, lossDelta: 0.0 },
-  { hour: 7, rttFactor: 1.0, lossDelta: 0.0 },
-  { hour: 8, rttFactor: 1.0, lossDelta: 0.0 },
-  { hour: 9, rttFactor: 1.0, lossDelta: 0.01 },
-  { hour: 10, rttFactor: 1.01, lossDelta: 0.01 },
-  { hour: 11, rttFactor: 1.02, lossDelta: 0.02 },
-  { hour: 12, rttFactor: 1.03, lossDelta: 0.03 },
-  { hour: 13, rttFactor: 1.03, lossDelta: 0.03 },
-  { hour: 14, rttFactor: 1.02, lossDelta: 0.02 },
-  { hour: 15, rttFactor: 1.01, lossDelta: 0.01 },
-  { hour: 16, rttFactor: 1.01, lossDelta: 0.01 },
-  { hour: 17, rttFactor: 1.01, lossDelta: 0.01 },
-  { hour: 18, rttFactor: 1.02, lossDelta: 0.02 },
-  { hour: 19, rttFactor: 1.03, lossDelta: 0.02 },
-  { hour: 20, rttFactor: 1.02, lossDelta: 0.02 },
-  { hour: 21, rttFactor: 1.01, lossDelta: 0.01 },
-  { hour: 22, rttFactor: 1.01, lossDelta: 0.0 },
-  { hour: 23, rttFactor: 1.0, lossDelta: 0.0 }
-];
+export const HOURLY_DELTAS = Array.from({ length: 24 }, (_, hour) => ({
+  hour,
+  rttFactor: 1.0,
+  lossDelta: 0.0
+}));
 
 export const MODEL_OFFSETS = {
   'model-a': { rttAdd: 0.0, lossAdd: 0.0 },
@@ -338,20 +317,12 @@ export function generatePredictionsForProbe(probeId, modelId = 'model-a') {
   return Array.from({ length: 48 }, (_, idx) => {
     const hourOfDay = idx % 24;
     const dayOffset = Math.floor(idx / 24);
-    const slot = HOURLY_DELTAS[hourOfDay];
     const hourStr = String(hourOfDay).padStart(2, '0');
     const stepStr = String(idx).padStart(2, '0');
     const datePart = dayOffset === 0 ? '2026-11-14' : '2026-11-15';
-    const dayFactor = dayOffset === 1 ? 1.005 : 1.0;
 
-    const rtt = Math.max(
-      1.0,
-      Number((probe.baseRttMs * slot.rttFactor * dayFactor + modelOffset.rttAdd).toFixed(1))
-    );
-    const loss = Math.max(
-      0.0,
-      Number((probe.baseLossPct + slot.lossDelta + modelOffset.lossAdd).toFixed(2))
-    );
+    const rtt = Math.max(1.0, Number((probe.baseRttMs + modelOffset.rttAdd).toFixed(1)));
+    const loss = Math.max(0.0, Number((probe.baseLossPct + modelOffset.lossAdd).toFixed(2)));
 
     return {
       predictionId: `atlas-${modelId}-${probe.probeId}-${stepStr}`,

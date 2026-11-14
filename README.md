@@ -45,15 +45,41 @@ pip install -r requirements.txt
 ## 🚀 Como Executar
 
 ### 1. Iniciar o Backend (API Spring Boot)
-Na raiz do projeto:
-```bash
-# Via Maven
-mvn spring-boot:run
+Na raiz do repositório, escolha **uma** das opções abaixo:
 
-# Ou diretamente pelo JAR compilado
+#### Opção A: Executar diretamente via Maven (Recomendado)
+Não exige a geração prévia do arquivo `.jar`:
+```bash
+mvn spring-boot:run
+```
+
+#### Opção B: Compilar e executar via JAR Standalone
+> ⚠️ **Atenção:** A pasta `target/` armazena artefatos compilados e é intencionalmente ignorada pelo Git (`.gitignore`). Se você acabou de baixar ou clonar o repositório, deve compilar o projeto antes de tentar rodar o `.jar`:
+
+```bash
+# 1. Compila o projeto e gera o arquivo JAR em target/
+mvn clean package -DskipTests
+
+# 2. Executa a aplicação a partir do JAR gerado
 java -jar target/connectivity-forecast-api-1.0.0.jar
 ```
+
+#### Opção C: Executar pela interface do VS Code
+Se preferir executar sem o terminal ou se não tiver o Maven configurado no `PATH`:
+1. Abra o arquivo `src/main/java/com/brazcubas/connectivityforecast/ConnectivityForecastApplication.java`.
+2. Clique no botão **`Run`** (ou `Debug`) exibido diretamente acima do método `main`.
+
 A API subirá em `http://localhost:8080`.
+
+---
+
+#### 🛠️ Resolução de Problemas Comuns no Backend
+* **`Unable to access jarfile target/...jar`**: Significa que o arquivo `.jar` ainda não foi gerado nesta máquina. Execute `mvn clean package -DskipTests` primeiro (ou utilize a **Opção A**).
+* **Erro de segurança no PowerShell (`PSSecurityException` / scripts desabilitados)**: Ocorre quando o PowerShell tenta rodar scripts de extensão (`debugjava.ps1`). Para rodar normalmente use `java -jar ...` (e não `debugjava`), ou libere a execução de scripts para seu usuário executando uma única vez:
+  ```powershell
+  Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+  ```
+* **Comando `mvn` não reconhecido**: Instale o [Apache Maven](https://maven.apache.org/) e adicione-o ao `PATH` do sistema, ou utilize a **Opção C** (botão Run do VS Code).
 
 ### 2. Iniciar o Frontend Web (React / Vite)
 Em um novo terminal:
@@ -64,7 +90,7 @@ npm run dev
 A aplicação estará disponível em `http://localhost:5173`. O Vite já possui proxy configurado para encaminhar requisições `/api` diretamente para a porta `8080`.
 
 ### 3. Coletar Dados Históricos e Gerar Previsões de 48h (Python + ML)
-Para coletar o histórico horário real (21 dias, 15 probes no Brasil) da API pública do RIPE Atlas e treinar os 4 modelos de Machine Learning (`LinearRegression`, `RandomForest`, `DecisionTree`, `GradientBoosting`) gerando as 2.880 previsões de 48h em `data/predictions.csv`:
+Para coletar o histórico horário real (365 dias / 1 ano completo, 15 probes no Brasil) da API pública do RIPE Atlas e treinar os 4 modelos de Machine Learning (`LinearRegression`, `RandomForest`, `DecisionTree`, `GradientBoosting`) gerando as 2.880 previsões de 48h em `data/predictions.csv`:
 ```bash
 # 1. Coleta o histórico horário (gera measurements_history.csv)
 python src/ripeatlas.py

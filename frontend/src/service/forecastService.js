@@ -66,13 +66,11 @@ export const forecastService = {
       let rtt = rec.predictedAvgRttMs;
       let loss = rec.predictedPacketLossPct;
 
-      // No horario atual (Agora), reflete a leitura ao vivo mais recente do RIPE Atlas quando disponivel
+      // No horario atual (Agora), atualiza o RTT com a leitura ao vivo e preserva a perda prevista pelo modelo caso o ping instantaneo (3 pacotes) seja 0%
       if (idx === safeRefHour && live && typeof live.avgRttMs === 'number') {
         rtt = Math.max(1.0, Number((live.avgRttMs + modelOffset.rttAdd).toFixed(1)));
-        loss = Math.max(
-          0.0,
-          Number(((live.packetLossPct || 0) + modelOffset.lossAdd).toFixed(2))
-        );
+        const liveLoss = Number(((live.packetLossPct || 0) + modelOffset.lossAdd).toFixed(2));
+        loss = Math.max(0.0, liveLoss > 0 ? liveLoss : rec.predictedPacketLossPct);
       } else if (!rec.hasRealPrediction && live && typeof live.avgRttMs === 'number') {
         const slotDelta = HOURLY_DELTAS[idx % 24] || refDelta;
         const factor = refDelta.rttFactor > 0 ? slotDelta.rttFactor / refDelta.rttFactor : 1.0;

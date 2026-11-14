@@ -1,13 +1,15 @@
-# src/ripeatlas.py -> Coleta horária enriquecida do RIPE Atlas para previsão de 48h (2 dias)
+# src/ripeatlas.py -> Coleta horária de 365 dias (1 ano) do RIPE Atlas para previsão de 48h (2 dias)
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
 import pandas as pd
 
 BASE = "https://atlas.ripe.net/api/v2"
 MSM_ID = 1001          # Medição ping pública global (K-root DNS)
-DIAS = 21              # 21 dias (3 semanas completas) de histórico para capturar padrões semanais e horários
+DIAS = 365             # 365 dias (1 ano completo) de histórico para treinamento dos modelos de ML
 N_PROBES = 15          # 15 probes ativas distribuídas no Brasil
-JANELA_DIAS = 7        # Busca em janelas de 7 dias para evitar timeout na API do RIPE Atlas
+JANELA_DIAS = 15       # Busca em janelas de 15 dias em paralelo para máxima velocidade sem timeout
+MAX_WORKERS = 5        # Requisições paralelas simultâneas
 
 
 def probes_br(n):
@@ -23,34 +25,74 @@ def probes_br(n):
     return probes
 
 
-def baixar_medicoes_em_lotes(probe_ids, start_ts, stop_ts):
-    todos_dados = []
-    passo = JANELA_DIAS * 86400
-    atual = start_ts
-    lote = 1
-    total_lotes = ((stop_ts - start_ts) + passo - 1) // passo
+def _baixar_um_lote(idx, total_lotes, probe_ids_str, inicio, fim):
+    for tentativa in range(3):
+        try:
+            r = requests.get(
+                f"{BASE}/measurements/{MSM_ID}/results/",
+                params={
+                    "start": inicio,
+                    "stop": fim,
+                    "format": "json",
+                    "probe_ids": probe_ids_str,
+                },
+                timeout=180,
+            )
+            r.raise_for_status()
+            dados = r.json()
+            linhas = []
+            for x in dados:
+                sent = x.get("sent", 0)
+                if sent <= 0:
+                    continue
+                avg_val = x.get("avg")
+                min_val = x.get("min")
+                max_val = x.get("max")
+                linhas.append({
+                    "probe_id": x["prb_id"],
+                    "ts_raw": x["timestamp"],
+                    "avg": avg_val if (avg_val is not None and avg_val > 0) else None,
+                    "min": min_val if (min_val is not None and min_val > 0) else None,
+                    "max": max_val if (max_val is not None and max_val > 0) else None,
+                    "sent": sent,
+                    "rcvd": x.get("rcvd", 0),
+                })
+            print(f"      -> Lote {idx}/{total_lotes} concluído: +{len(dados)} medições brutas.")
+            return len(dados), linhas
+        except Exception as e:
+            if tentativa == 2:
+                print(f"      [AVISO] Falha no lote {idx}/{total_lotes}: {e}")
+                return 0, []
+            time.sleep(2 * (tentativa + 1))
+    return 0, []
 
+
+def baixar_medicoes_em_lotes(probe_ids, start_ts, stop_ts):
+    passo = JANELA_DIAS * 86400
+    janelas = []
+    atual = start_ts
     while atual < stop_ts:
         fim_janela = min(atual + passo, stop_ts)
-        print(f"[2/4] Baixando lote {lote}/{total_lotes} de medições brutas...")
-        r = requests.get(
-            f"{BASE}/measurements/{MSM_ID}/results/",
-            params={
-                "start": atual,
-                "stop": fim_janela,
-                "format": "json",
-                "probe_ids": ",".join(map(str, probe_ids)),
-            },
-            timeout=120,
-        )
-        r.raise_for_status()
-        dados_lote = r.json()
-        print(f"      -> Lote {lote}: +{len(dados_lote)} medições recebidas.")
-        todos_dados.extend(dados_lote)
+        janelas.append((atual, fim_janela))
         atual = fim_janela
-        lote += 1
 
-    return todos_dados
+    total_lotes = len(janelas)
+    probe_ids_str = ",".join(map(str, probe_ids))
+    print(f"[2/4] Baixando {DIAS} dias em {total_lotes} lotes paralelos ({MAX_WORKERS} workers)...")
+
+    total_brutos = 0
+    todas_linhas = []
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
+        futuros = [
+            pool.submit(_baixar_um_lote, idx + 1, total_lotes, probe_ids_str, ini, fim)
+            for idx, (ini, fim) in enumerate(janelas)
+        ]
+        for fut in as_completed(futuros):
+            qtd, linhas = fut.result()
+            total_brutos += qtd
+            todas_linhas.extend(linhas)
+
+    return total_brutos, todas_linhas
 
 
 def main():
@@ -59,33 +101,14 @@ def main():
     stop = int(time.time())
     start = stop - DIAS * 86400
 
-    raw_data = baixar_medicoes_em_lotes(list(meta.keys()), start, stop)
-    print(f"[3/4] Total de {len(raw_data)} medições brutas coletadas. Processando séries horárias...")
-
-    linhas = []
-    for x in raw_data:
-        sent = x.get("sent", 0)
-        if sent <= 0:
-            continue
-        avg_val = x.get("avg")
-        min_val = x.get("min")
-        max_val = x.get("max")
-        linhas.append({
-            "probe_id": x["prb_id"],
-            "ts_raw": x["timestamp"],
-            "avg": avg_val if (avg_val is not None and avg_val > 0) else None,
-            "min": min_val if (min_val is not None and min_val > 0) else None,
-            "max": max_val if (max_val is not None and max_val > 0) else None,
-            "sent": sent,
-            "rcvd": x.get("rcvd", 0),
-        })
+    total_brutos, linhas = baixar_medicoes_em_lotes(list(meta.keys()), start, stop)
+    print(f"[3/4] Total de {total_brutos} medições brutas coletadas (365 dias). Processando séries horárias...")
 
     if not linhas:
         print("Nenhuma medição encontrada para o período selecionado.")
         return
 
     df = pd.DataFrame(linhas)
-    # Conversão vetorizada de timestamp e agrupamento por HORA ("h") em vez de dia ("D")
     df["ts"] = pd.to_datetime(df["ts_raw"], unit="s", utc=True)
     df["hora_slot"] = df["ts"].dt.floor("h")
 
@@ -103,7 +126,6 @@ def main():
         .reset_index()
     )
 
-    # Remove horas onde não houve nenhuma resposta de RTT válida
     g = g.dropna(subset=["avg_rtt_ms"]).copy()
     g["std_rtt_ms"] = g["std_rtt_ms"].fillna(0.0)
     g["packet_loss_pct"] = ((1.0 - g["rcvd"] / g["sent"]).clip(lower=0.0, upper=1.0)) * 100.0
@@ -125,7 +147,7 @@ def main():
 
     output_file = "measurements_history.csv"
     g.to_csv(output_file, index=False, float_format="%.3f")
-    print(f"[4/4] [SUCESSO] {len(g)} registros horários consolidados (de {len(raw_data)} pings brutos) salvos em {output_file}!")
+    print(f"[4/4] [SUCESSO] {len(g)} registros horários consolidados (de {total_brutos} pings brutos em 365 dias) salvos em {output_file}!")
 
 
 if __name__ == "__main__":

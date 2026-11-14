@@ -7,7 +7,7 @@ function buildSvgPath(items, width, height, padding) {
   const rtts = items.map((i) => i.predictedAvgRttMs);
   const minVal = Math.min(...rtts);
   const maxVal = Math.max(...rtts);
-  const range = Math.max(10, maxVal - minVal);
+  const range = Math.max(0.5, maxVal - minVal);
 
   const usableW = width - padding * 2;
   const usableH = height - padding * 2;

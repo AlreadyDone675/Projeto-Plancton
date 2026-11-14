@@ -20,9 +20,17 @@ function getSystemTimeState() {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('overview');
-  // Padrao Sao Paulo - Zona Sul (Probe RIPE Atlas 6410) caso a geolocalizacao nao seja aceita
-  const [selectedProbeId, setSelectedProbeId] = useState(6410);
-  const [userCoords, setUserCoords] = useState(null);
+  // Padrao Sao Paulo - Vila Mariana (Probe RIPE Atlas 6790) e cache de coordenadas reconhecidas
+  const [selectedProbeId, setSelectedProbeId] = useState(6790);
+  const [isManualSelection, setIsManualSelection] = useState(false);
+  const [userCoords, setUserCoords] = useState(() => {
+    try {
+      const saved = localStorage.getItem('connecttech_user_coords');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [theme, setTheme] = useState('light');
@@ -46,19 +54,23 @@ export default function App() {
   const currentHour = timeState.hour;
   const clockDisplay = timeState.display;
 
-  // Geolocalizacao opcional
+  // Geolocalizacao opcional com persistencia local para evitar troca visual no F5
   useEffect(() => {
     if (!navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        setUserCoords({
+        const coords = {
           latitude: pos.coords.latitude,
           longitude: pos.coords.longitude
-        });
+        };
+        setUserCoords(coords);
+        try {
+          localStorage.setItem('connecttech_user_coords', JSON.stringify(coords));
+        } catch {
+          // ignore storage errors
+        }
       },
-      () => {
-        setUserCoords(null);
-      },
+      () => {},
       { timeout: 4000 }
     );
   }, []);
@@ -88,18 +100,29 @@ export default function App() {
   const anchorCoords = useMemo(() => {
     if (userCoords) return userCoords;
     const defaultProbe =
-      forecastRepository.findProbeById(6410) || forecastRepository.findAllProbes()[0];
+      forecastRepository.findProbeById(6790) || forecastRepository.findAllProbes()[0];
     return {
       latitude: defaultProbe.latitude,
       longitude: defaultProbe.longitude
     };
   }, [userCoords, dataVersion]);
 
+  const nearestProbeId = useMemo(() => {
+    const home = forecastService.getNearbyForecast(
+      anchorCoords.latitude,
+      anchorCoords.longitude,
+      'model-a',
+      currentHour
+    );
+    return home.probeInfo.probeId;
+  }, [anchorCoords, currentHour, dataVersion]);
+
   const nearbyForecast = useMemo(() => {
-    const lat = userCoords ? userCoords.latitude : selectedProbe.latitude;
-    const lon = userCoords ? userCoords.longitude : selectedProbe.longitude;
+    const useRecognized = !isManualSelection && userCoords;
+    const lat = useRecognized ? userCoords.latitude : selectedProbe.latitude;
+    const lon = useRecognized ? userCoords.longitude : selectedProbe.longitude;
     return forecastService.getNearbyForecast(lat, lon, 'model-a', currentHour);
-  }, [selectedProbe, userCoords, currentHour, dataVersion]);
+  }, [selectedProbe, isManualSelection, userCoords, currentHour, dataVersion]);
 
   const activeProbeId = nearbyForecast.probeInfo.probeId;
 
@@ -143,8 +166,13 @@ export default function App() {
   );
 
   const handleSelectProbe = (probeId) => {
-    setUserCoords(null);
+    setIsManualSelection(true);
     setSelectedProbeId(Number(probeId));
+  };
+
+  const handleReturnToNearest = () => {
+    setIsManualSelection(false);
+    setSelectedProbeId(nearestProbeId);
   };
 
   // Atualizar manualmente os dados ao vivo do RIPE Atlas
@@ -175,7 +203,9 @@ export default function App() {
               allProbes={allProbes}
               anchorCoords={anchorCoords}
               selectedProbeId={activeProbeId}
+              nearestProbeId={nearestProbeId}
               onSelectProbe={handleSelectProbe}
+              onReturnToNearest={handleReturnToNearest}
               onOpenSettings={() => setSettingsOpen(true)}
               onOpenHelp={() => setHelpOpen(true)}
               clockDisplay={clockDisplay}

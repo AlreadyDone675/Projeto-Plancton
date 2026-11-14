@@ -17,7 +17,9 @@ export default function OverviewPage({
   allProbes,
   anchorCoords,
   selectedProbeId,
+  nearestProbeId,
   onSelectProbe,
+  onReturnToNearest,
   onOpenSettings,
   onOpenHelp,
   clockDisplay,
@@ -102,7 +104,7 @@ export default function OverviewPage({
         </div>
       </header>
 
-      {/* Apenas a Area Reconhecida / Selecionada */}
+      {/* Apenas a Area Reconhecida / Selecionada + Botao para retornar a area mais proxima */}
       <section className="region-row">
         <div className="region-title-group">
           <svg
@@ -117,6 +119,15 @@ export default function OverviewPage({
           </svg>
           <h1 className="region-title">{probeInfo.displayName}</h1>
         </div>
+        {selectedProbeId !== nearestProbeId && (
+          <button
+            type="button"
+            className="reset-now-btn"
+            onClick={onReturnToNearest}
+          >
+            Área mais próxima
+          </button>
+        )}
       </section>
 
       {/* Card Principal: Qualidade (0 a 100), Ping e Perda */}

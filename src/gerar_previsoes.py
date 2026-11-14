@@ -1,7 +1,7 @@
 """
 src/gerar_previsoes.py
 Treina os 4 modelos de Machine Learning (Linear Regression, Random Forest, Decision Tree, Gradient Boosting)
-sobre o historico real coletado do RIPE Atlas (measurements_history.csv) e gera 48 horas (2 dias)
+sobre o historico real de 365 dias coletado do RIPE Atlas (measurements_history.csv) e gera 48 horas (2 dias)
 de previsoes no formato exato de 15 colunas exigido pelo Backend Java (data/predictions.csv).
 """
 
@@ -16,10 +16,11 @@ from sklearn.tree import DecisionTreeRegressor
 INPUT_CSV = "measurements_history.csv"
 OUTPUT_CSV = os.path.join("data", "predictions.csv")
 HORAS_PREVISAO = 48  # 2 dias completos (48 horas)
+BRT_TZ = timezone(timedelta(hours=-3))
 
 
 def extrair_features(df_horas):
-    """Cria features ciclicas de hora do dia e dia da semana para os modelos de ML."""
+    """Cria features ciclicas de hora do dia (fuso Brasil UTC-3) e dia da semana para os modelos de ML."""
     h = df_horas["hour"].to_numpy(dtype=float)
     dow = df_horas["day_of_week"].to_numpy(dtype=float)
     is_weekend = (dow >= 5).astype(float)
@@ -46,13 +47,13 @@ def instanciar_modelos():
             0.85,
         ),
         "model-b": (
-            RandomForestRegressor(n_estimators=60, max_depth=6, min_samples_leaf=3, random_state=42),
-            RandomForestRegressor(n_estimators=60, max_depth=6, min_samples_leaf=3, random_state=42),
+            RandomForestRegressor(n_estimators=60, max_depth=6, min_samples_leaf=5, random_state=42),
+            RandomForestRegressor(n_estimators=60, max_depth=6, min_samples_leaf=5, random_state=42),
             0.91,
         ),
         "model-c": (
-            DecisionTreeRegressor(max_depth=5, min_samples_leaf=5, random_state=42),
-            DecisionTreeRegressor(max_depth=5, min_samples_leaf=5, random_state=42),
+            DecisionTreeRegressor(max_depth=5, min_samples_leaf=8, random_state=42),
+            DecisionTreeRegressor(max_depth=5, min_samples_leaf=8, random_state=42),
             0.82,
         ),
         "model-d": (
@@ -80,7 +81,12 @@ def main():
     df = pd.read_csv(INPUT_CSV)
     df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
 
-    # Janela de previsao de 48h (Dia atual 00:00 UTC ate +47h)
+    # Converte o horario de treinamento para o fuso do Brasil (UTC-3)
+    ts_brt = df["timestamp"].dt.tz_convert(BRT_TZ)
+    df["hour"] = ts_brt.dt.hour
+    df["day_of_week"] = ts_brt.dt.dayofweek
+
+    # Janela de previsao de 48h alinhada as 00h..23h locais
     agora_utc = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
     inicio_previsao = agora_utc.replace(hour=0)
     generated_at_str = agora_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -94,12 +100,12 @@ def main():
     X_futuro = extrair_features(df_futuro)
 
     probes = sorted(df["probe_id"].unique())
-    print(f"[2/3] Treinando 4 modelos de ML para {len(probes)} probes (horizonte de {HORAS_PREVISAO}h / 2 dias)...")
+    print(f"[2/3] Treinando 4 modelos de ML com 365 dias para {len(probes)} probes (horizonte de {HORAS_PREVISAO}h / 2 dias)...")
 
     linhas_saida = []
 
     for probe_id in probes:
-        sub = df[df["probe_id"] == probe_id].copy()
+        sub = df[df["probe_id"] == probe_id].sort_values("timestamp").copy()
         if sub.empty:
             continue
 
@@ -112,19 +118,31 @@ def main():
         lat = round(float(primeira["latitude"]), 4)
         lon = round(float(primeira["longitude"]), 4)
 
-        X_train = extrair_features(sub)
-        y_rtt = sub["avg_rtt_ms"].to_numpy(dtype=float)
-        y_loss = sub["packet_loss_pct"].to_numpy(dtype=float)
+        # Remove mudancas estruturais antigas de rota (BGP) preservando a variacao horaria/semanal dos 365 dias
+        # ancorada no patamar operacional recente (ultimos 7 dias = 168 horas)
+        janela_recente = sub.tail(168)
+        base_atual_rtt = float(janela_recente["avg_rtt_ms"].median())
+        media_movel_rtt = sub["avg_rtt_ms"].rolling(window=72, min_periods=1, center=True).median()
+        variacao_horaria_rtt = (sub["avg_rtt_ms"] - media_movel_rtt).clip(
+            lower=-0.25 * base_atual_rtt,
+            upper=0.35 * base_atual_rtt,
+        )
+        y_rtt = (base_atual_rtt + variacao_horaria_rtt).clip(lower=0.5).to_numpy(dtype=float)
 
-        # Estabilidade historica da probe para calibrar confianca
+        y_loss = sub["packet_loss_pct"].clip(upper=15.0).to_numpy(dtype=float)
+        X_train = extrair_features(sub)
+
+        # Pesos maiores para as semanas mais recentes ao longo dos 365 dias
+        pesos = np.linspace(0.3, 1.0, len(sub))
+
         cv_rtt = float(np.std(y_rtt) / max(1.0, np.mean(y_rtt)))
         penalidade_variancia = min(0.12, cv_rtt * 0.15)
 
         modelos = instanciar_modelos()
 
         for model_id, (reg_rtt, reg_loss, base_conf) in modelos.items():
-            reg_rtt.fit(X_train, y_rtt)
-            reg_loss.fit(X_train, y_loss)
+            reg_rtt.fit(X_train, y_rtt, sample_weight=pesos)
+            reg_loss.fit(X_train, y_loss, sample_weight=pesos)
 
             pred_rtt = reg_rtt.predict(X_futuro)
             pred_loss = reg_loss.predict(X_futuro)
@@ -133,7 +151,7 @@ def main():
 
             for idx_h in range(HORAS_PREVISAO):
                 dt_alvo = datas_futuras[idx_h]
-                rtt_val = round(max(1.0, float(pred_rtt[idx_h])), 1)
+                rtt_val = round(max(0.5, float(pred_rtt[idx_h])), 1)
                 loss_val = round(min(100.0, max(0.0, float(pred_loss[idx_h]))), 2)
 
                 linhas_saida.append({
