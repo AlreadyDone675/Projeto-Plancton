@@ -3,59 +3,60 @@
 Plataforma integrada de previsão, análise de qualidade de conexão de rede e telemetria, desenvolvida para a disciplina de **Análise e Projeto de Sistemas II (APS II — 2026/2, Squad Plancton)** sob orientação do **Prof. Davi de Oliveira Cruz**.
 
 O ecossistema é composto por:
-1. **Backend REST API (Java / Spring Boot):** Inteligência de previsão de conectividade baseada em modelos de Machine Learning e dados do RIPE Atlas.
-2. **Frontend Web & Mobile (React / Vite / Capacitor):** Interface mobile-first com mapa interativo (Leaflet), previsão de 48h (2 dias) nas 15 probes reais do RIPE Atlas no Brasil, cards de qualidade e validação de adequação de atividades em tempo real.
-3. **Módulo de Monitoramento Python (ICMP & SQLite):** Script de medição de latência, cálculo de Jitter e TTL com persistência em banco de dados local.
+1. **Frontend Web & Mobile (React / Vite / Capacitor):** Interface mobile-first com mapa interativo (Leaflet), previsão de 48h (2 dias) nas 15 probes reais do RIPE Atlas no Brasil, cards de qualidade e validação de adequação de atividades em tempo real.
+2. **Backend REST API (Java / Spring Boot):** Inteligência de previsão de conectividade baseada em modelos de Machine Learning e dados do RIPE Atlas.
+3. **Módulo de Inteligência & Monitoramento Python (ML, ICMP & SQLite):** Coleta de dados horários do RIPE Atlas, treino de 4 modelos preditivos e script de medição de latência/jitter local.
 
 ---
 
-## 📋 Pré-requisitos
+## 📋 1. Pré-requisitos (Download dos Serviços)
 
-* **Java:** JDK 17+ (recomendado JDK 17 ou 21 para Spring Boot 3)
-* **Maven:** 3.9+ *(Necessário para comandos no terminal como `mvn spring-boot:run`; caso não tenha, veja como instalar abaixo ou utilize o VS Code)*
-* **Node.js:** 18+ (com npm)
-* **Python:** 3.9+ (com pip)
+Certifique-se de ter os serviços abaixo instalados em seu sistema operacional antes de prosseguir:
+
+* **Node.js (18+ / LTS com npm):** [Download oficial do Node.js](https://nodejs.org/)
+* **Java JDK (17+ ou 21):** [Download do JDK (Eclipse Temurin)](https://adoptium.net/) ou [Oracle JDK](https://www.oracle.com/java/technologies/downloads/#java17)
+* **Apache Maven (3.9+):** [Download oficial do Apache Maven](https://maven.apache.org/download.cgi) *(Opcional se utilizar o VS Code com a extensão Extension Pack for Java)*
+* **Python (3.9+ com pip):** [Download oficial do Python](https://www.python.org/downloads/)
 
 ---
 
-## 📦 Instalação de Dependências
+## 📦 2. Instalação de Dependências
 
-### 1. Backend (Java / Maven)
-Na raiz do repositório:
-```bash
-mvn clean install -DskipTests
-```
+Com os serviços instalados em sua máquina, execute a instalação dos pacotes na ordem abaixo:
 
-### 2. Frontend (Node / React)
-Acesse a pasta `frontend` e instale os pacotes:
+### 1. Frontend (Node / React)
+Acesse a pasta `frontend` e instale as dependências:
 ```bash
 cd frontend
 npm install
 cd ..
 ```
 
+### 2. Backend (Java / Maven)
+Na raiz do repositório, baixe as dependências e compile os artefatos:
+```bash
+mvn clean install -DskipTests
+```
+
 ### 3. Módulo Python
-Instale os pacotes recomendados via `requirements.txt`:
+Na raiz do repositório, instale as dependências de Machine Learning e automação:
 ```bash
 pip install -r requirements.txt
 ```
 
 ---
 
-## 🚀 Como Executar
+## 🚀 3. Como Executar
 
 ### 1. Iniciar o Backend (API Spring Boot)
-Na raiz do repositório, escolha **uma** das opções abaixo:
+Na raiz do projeto, escolha **uma** das opções abaixo:
 
 #### Opção A: Executar diretamente via Maven (Recomendado)
-Não exige a geração prévia do arquivo `.jar`:
 ```bash
 mvn spring-boot:run
 ```
 
 #### Opção B: Compilar e executar via JAR Standalone
-> ⚠️ **Atenção:** A pasta `target/` armazena artefatos compilados e é intencionalmente ignorada pelo Git (`.gitignore`). Se você acabou de baixar ou clonar o repositório, deve compilar o projeto antes de tentar rodar o `.jar`:
-
 ```bash
 # 1. Compila o projeto e gera o arquivo JAR em target/
 mvn clean package -DskipTests
@@ -64,39 +65,13 @@ mvn clean package -DskipTests
 java -jar target/connectivity-forecast-api-1.0.0.jar
 ```
 
-#### Opção C: Executar pela interface do VS Code
-Se preferir executar sem o terminal ou se não tiver o Maven configurado no `PATH`:
-1. Abra o arquivo `src/main/java/com/brazcubas/connectivityforecast/ConnectivityForecastApplication.java`.
-2. Clique no botão **`Run`** (ou `Debug`) exibido diretamente acima do método `main`.
+#### Opção C: Executar pela interface gráfica do VS Code
+1. Abra o arquivo `src/main/java/com/brazcubas/apsii/ConnectivityForecastApiApplication.java`.
+2. Clique no botão **`Run`** (ou `Debug`) exibido acima do método `main`.
 
-A API subirá em `http://localhost:8080`.
+A API estará disponível em `http://localhost:8080`.
 
 ---
-
-#### 🛠️ Resolução de Problemas Comuns no Backend
-* **`Unable to access jarfile target/...jar`**: Significa que o arquivo `.jar` ainda não foi gerado nesta máquina. Execute `mvn clean package -DskipTests` primeiro (ou utilize a **Opção A** ou **Opção C**).
-* **Erro de segurança no PowerShell (`PSSecurityException` / scripts desabilitados)**: Ocorre quando o PowerShell tenta rodar scripts de extensão do VS Code (`debugjava.ps1`). Para rodar normalmente use `java -jar ...` (e não `debugjava`), ou libere a execução de scripts para seu usuário executando uma única vez no PowerShell:
-  ```powershell
-  Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-  ```
-* **Comando `mvn` não reconhecido (Maven não instalado ou fora do PATH)**:  
-  Se aparecer a mensagem *`O termo 'mvn' não é reconhecido como nome de cmdlet...`*, escolha uma das alternativas:
-  * **Opção 1 — Instalação rápida no Windows via terminal (Recomendado):**  
-    Abra o PowerShell ou Prompt de Comando e execute:
-    ```powershell
-    winget install Apache.Maven
-    ```
-    *Após a instalação, feche e abra o terminal/VS Code novamente para que o novo PATH seja reconhecido.*
-  * **Opção 2 — Instalação manual no Windows:**  
-    1. Baixe o arquivo binário `.zip` no site oficial do [Apache Maven](https://maven.apache.org/download.cgi).  
-    2. Extraia o conteúdo em uma pasta permanente (ex: `C:\Program Files\Apache\maven` ou `C:\tools\maven`).  
-    3. Abra as **Variáveis de Ambiente do Sistema** no Windows e adicione a subpasta `bin` (ex: `C:\tools\maven\bin`) na variável `Path`.  
-    4. Abra um novo terminal e confirme digitando `mvn -version`.
-  * **Opção 3 — Linux (Ubuntu/Debian) ou macOS:**  
-    * Ubuntu/Debian: `sudo apt update && sudo apt install maven -y`  
-    * macOS (Homebrew): `brew install maven`
-  * **Opção 4 — Rodar sem instalar o Maven (pelo VS Code):**  
-    Utilize a **Opção C**: basta ter a extensão **Extension Pack for Java** no VS Code, abrir `src/main/java/com/brazcubas/connectivityforecast/ConnectivityForecastApplication.java` e clicar em **`Run`**. O próprio VS Code gerencia a compilação e execução sem precisar do utilitário `mvn` de linha de comando.
 
 ### 2. Iniciar o Frontend Web (React / Vite)
 Em um novo terminal:
@@ -104,27 +79,32 @@ Em um novo terminal:
 cd frontend
 npm run dev
 ```
-A aplicação estará disponível em `http://localhost:5173`. O Vite já possui proxy configurado para encaminhar requisições `/api` diretamente para a porta `8080`.
+Acesse a aplicação no navegador em `http://localhost:5173`. O Vite já possui proxy configurado para encaminhar requisições `/api` automaticamente para a porta `8080`.
 
-### 3. Coletar Dados Históricos e Gerar Previsões de 48h (Python + ML)
-Para coletar o histórico horário real (365 dias / 1 ano completo, 15 probes no Brasil) da API pública do RIPE Atlas e treinar os 4 modelos de Machine Learning (`LinearRegression`, `RandomForest`, `DecisionTree`, `GradientBoosting`) gerando as 2.880 previsões de 48h em `data/predictions.csv`:
+---
+
+### 3. Coletar Dados Históricos e Treinar Modelos de ML (Python - Opcional)
+Para atualizar o histórico horário de 1 ano completo (15 probes do RIPE Atlas no Brasil) e retreinar os 4 modelos de Machine Learning (`LinearRegression`, `RandomForest`, `DecisionTree`, `GradientBoosting`), gerando as 2.880 previsões em `data/predictions.csv`:
 ```bash
-# 1. Coleta o histórico horário (gera measurements_history.csv)
+# 1. Coleta o histórico da API pública do RIPE Atlas (gera measurements_history.csv)
 python src/ripeatlas.py
 
-# 2. Treina os 4 modelos e adapta para as 15 colunas do Backend Java (gera data/predictions.csv)
+# 2. Treina os modelos e gera as previsões para o Backend Java (data/predictions.csv)
 python src/gerar_previsoes.py
 ```
 
-### 4. Executar o Monitor ICMP Local (Python)
-Em outro terminal (opcional para testes de monitoramento local de rede):
+---
+
+### 4. Executar o Monitor ICMP Local (Python - Opcional)
+Para executar ciclos de ping locais, cálculo de RTT, Jitter, TTL e gravação em banco SQLite local (`rede_monitoramento.db`):
 ```bash
 python main.py
 ```
-O script executa ciclos de ping em hosts configurados, calcula RTT, Jitter e TTL, classifica a estabilidade do enlace e armazena os dados em `rede_monitoramento.db`.
 
-### 5. Build e Sincronização Mobile (Android / Capacitor)
-Para sincronizar as alterações da aplicação web com o projeto nativo Android:
+---
+
+### 5. Build e Sincronização Mobile (Android / Capacitor - Opcional)
+Para sincronizar as alterações web com o projeto nativo Android:
 ```bash
 cd frontend
 npm run mobile:sync
@@ -132,7 +112,7 @@ npm run mobile:sync
 
 ---
 
-## 📖 Documentação Interativa da API
+## 📖 4. Documentação Interativa da API
 
 Após iniciar o backend, acesse no navegador:
 * **Swagger UI:** [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html)
@@ -140,7 +120,7 @@ Após iniciar o backend, acesse no navegador:
 
 ---
 
-## 📌 Principais Endpoints (`/api/v1`)
+## 📌 5. Principais Endpoints (`/api/v1`)
 
 | Método | Rota | Descrição |
 | :--- | :--- | :--- |
@@ -155,16 +135,27 @@ Após iniciar o backend, acesse no navegador:
 
 ---
 
-## 🎯 Escopo e Características Técnicas
+## 🎯 6. Escopo e Características Técnicas
 
-* **Simulação Local & Fixtures:** Dados de previsão carregados em memória a partir de `data/predictions.csv` (coletados originalmente via API pública do RIPE Atlas com 4 modelos ativos e histórico horários).
+* **Simulação Local & Fixtures:** Dados de previsão carregados em memória a partir de `data/predictions.csv` (coletados originalmente via API pública do RIPE Atlas com 4 modelos ativos e histórico horário).
 * **Telemetria Híbrida / RIPE Atlas:** Sincronização periódica com a rede pública global do RIPE Atlas para leitura de latência e perda de pacotes em tempo real.
-* **Resiliência e Fallback Offline:** O frontend possui tolerância a falhas — se o backend Spring Boot estiver indisponível, ele ativa fallback em memória ou lê o CSV localmente.
+* **Resiliência e Fallback Offline:** O frontend possui tolerância a falhas — se o backend Spring Boot estiver indisponível, ativa fallback em memória ou lê o CSV localmente.
 * **Higiene de Versionamento:** Diretórios pesados como `node_modules/`, `target/`, builds móveis (`dist/`, `.apk`, `.aab`), cache do Gradle e bancos SQLite locais são gerados sob demanda e ignorados pelo `.gitignore`.
 
 ---
 
-## 📄 Licença e Referências
+## 📄 7. Licença e Referências
 
 * Reimplementação baseada na [API de referência](https://github.com/LiniiS/connectivity-forecast-api) sob licença MIT.
 * Repositório do Squad Plancton: [APS II - ConnectTech](https://github.com/AlreadyDone675/Projeto-Plancton)
+
+---
+
+## 🛠️ 8. Resolução de Problemas Comuns no Backend
+
+* **`Unable to access jarfile target/...jar`**: Significa que o arquivo `.jar` ainda não foi gerado nesta máquina. Execute `mvn clean package -DskipTests` primeiro (ou utilize a **Opção A** via Maven ou **Opção C** via VS Code).
+* **Erro de segurança no PowerShell (`PSSecurityException` / scripts desabilitados)**: Ocorre quando o PowerShell restringe a execução de scripts locais. Para liberar a execução para seu usuário, execute uma única vez no PowerShell:
+  ```powershell
+  Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+  ```
+* **Comando `mvn` não reconhecido (Maven não instalado ou fora do PATH)**: Certifique-se de que o Maven foi baixado e que o caminho da pasta `bin` foi adicionado à variável de ambiente `Path` do sistema operacional. Alternativamente, utilize a **Opção C**: abra o arquivo `src/main/java/com/brazcubas/apsii/ConnectivityForecastApiApplication.java` no VS Code com a extensão *Extension Pack for Java* e clique em **`Run`** sem necessidade do CLI `mvn`.
