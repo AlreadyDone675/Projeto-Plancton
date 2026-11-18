@@ -1,0 +1,9 @@
+{
+  "short_name": "ConnectTech",
+  "name": "ConnectTech - Previsao de Conectividade",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0284c7",
+  "orientation": "portrait"
+}

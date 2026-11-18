@@ -35,6 +35,8 @@ pnpm-debug.log*
 # --- Mobile, Capacitor & Android ---
 *.apk
 *.aab
+.expo/
+**/.expo/
 frontend/ConnectTech.apk
 frontend/dist/ConnectTech.apk
 **/android/.gradle/
